@@ -324,6 +324,18 @@ export function updateIngredientStock(state, ingredientId, stockStatus) {
   return nextState;
 }
 
+export function addIngredient(state, ingredient) {
+  const nextState = cloneState(state);
+  nextState.ingredients.push(ingredient);
+  return nextState;
+}
+
+export function deleteIngredient(state, ingredientId) {
+  const nextState = cloneState(state);
+  nextState.ingredients = nextState.ingredients.filter((i) => i.id !== ingredientId);
+  return nextState;
+}
+
 export function addRecipe(state, recipe) {
   const nextState = cloneState(state);
   nextState.recipes.push(recipe);

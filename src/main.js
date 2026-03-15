@@ -1,7 +1,9 @@
 import {
+  addIngredient,
   addRecipe,
   buildShoppingList,
   createSeedState,
+  deleteIngredient,
   deleteRecipe,
   ensurePlanWindow,
   getDashboardSnapshot,
@@ -25,6 +27,7 @@ const uiState = {
   openCategory: null,
   editingRecipeId: null,
   creatingRecipe: null,
+  addingIngredient: null, // { name, category, acceptedLabel }
   suggestionSeed: Date.now(),
   notice: "",
   installPrompt: null,
@@ -76,6 +79,45 @@ function attachEvents() {
       case "toggle-category":
         uiState.openCategory = uiState.openCategory === actionTarget.dataset.category ? null : actionTarget.dataset.category;
         render();
+        break;
+      case "open-add-ingredient":
+        uiState.addingIngredient = { name: "", category: "蛋白质", acceptedLabel: "爱吃" };
+        render();
+        break;
+      case "close-add-ingredient":
+        uiState.addingIngredient = null;
+        render();
+        break;
+      case "set-ingredient-category":
+        if (uiState.addingIngredient) {
+          uiState.addingIngredient.category = actionTarget.dataset.category;
+          render();
+        }
+        break;
+      case "set-ingredient-accepted":
+        if (uiState.addingIngredient) {
+          uiState.addingIngredient.acceptedLabel = actionTarget.dataset.label;
+          render();
+        }
+        break;
+      case "save-ingredient": {
+        if (!uiState.addingIngredient) break;
+        const name = uiState.addingIngredient.name.trim();
+        if (!name) { announce("请输入食材名称"); break; }
+        const newIngredient = {
+          id: `custom-ing-${Date.now()}`,
+          name,
+          category: uiState.addingIngredient.category,
+          acceptedLabel: uiState.addingIngredient.acceptedLabel,
+          note: "",
+          stockStatus: "in-stock",
+        };
+        uiState.addingIngredient = null;
+        commit(addIngredient(state, newIngredient), `${name} 已加入库存`);
+        break;
+      }
+      case "delete-ingredient":
+        commit(deleteIngredient(state, actionTarget.dataset.ingredientId), "食材已删除");
         break;
       case "refresh-suggestions":
         uiState.suggestionSeed = Date.now();
@@ -203,6 +245,13 @@ function attachEvents() {
     }
   });
 
+  root.addEventListener("input", (event) => {
+    const target = event.target;
+    if (target.matches("[data-role='ingredient-name']") && uiState.addingIngredient) {
+      uiState.addingIngredient.name = target.value;
+    }
+  });
+
   root.addEventListener("change", (event) => {
     const target = event.target;
 
@@ -302,6 +351,7 @@ function render() {
     ${renderBottomNav()}
     ${uiState.editingRecipeId ? renderIngredientDrawer(uiState.editingRecipeId) : ""}
     ${uiState.creatingRecipe ? renderRecipeCreatorDrawer() : ""}
+    ${uiState.addingIngredient ? renderAddIngredientDrawer() : ""}
   `;
 }
 
@@ -339,8 +389,8 @@ function renderTodayPage(snapshot, today) {
   return `
     <section class="dashboard-board">
       <section class="content-board today-board">
-        ${renderMealCard(today, lunch)}
-        ${renderMealCard(today, dinner)}
+        ${lunch ? renderMealCard(today, lunch) : ""}
+        ${dinner ? renderMealCard(today, dinner) : ""}
         <section class="panel-card compact-card wide-card">
           <div class="header-row">
             <div>
@@ -516,55 +566,124 @@ function renderHistoryIngredient(ingredient) {
 }
 
 function renderCategoryPicker() {
-  const categories = ["主食", "蛋白质", "蔬菜"];
+  const categories = ["蛋白质", "蔬菜", "主食"];
   const open = uiState.openCategory;
 
   return `
     <section class="panel-card compact-card">
       <div class="header-row">
         <div>
-          <p class="section-overline">My Fridge</p>
-          <h3 class="section-title">我的库存</h3>
+          <p class="section-overline">My Ingredients</p>
+          <h3 class="section-title">选配食物</h3>
         </div>
+        <button class="primary-button" data-action="open-add-ingredient" type="button">+ 新增</button>
       </div>
       <div class="filter-row">
-        ${categories.map((cat) => `
-          <button
-            class="filter-button ${open === cat ? "active" : ""}"
-            data-action="toggle-category"
-            data-category="${cat}"
-            type="button"
-          >${cat}</button>
-        `).join("")}
+        ${categories.map((cat) => {
+          const count = state.ingredients.filter((i) => i.category === cat).length;
+          return `
+            <button
+              class="filter-button ${open === cat ? "active" : ""}"
+              data-action="toggle-category"
+              data-category="${cat}"
+              type="button"
+            >${cat}${count ? ` · ${count}` : ""}</button>
+          `;
+        }).join("")}
       </div>
       ${open ? `
         <div class="inventory-list">
-          ${state.ingredients
-            .filter((ing) => ing.category === open)
-            .map((ing) => {
-              const hasStock = ing.stockStatus === "in-stock" || ing.stockStatus === "low";
-              return `
-                <div class="inventory-row">
-                  <div class="inventory-row-left">
-                    <span class="inventory-row-name">${ing.name}</span>
-                    <span class="inventory-row-meta">${ing.acceptedLabel}</span>
+          ${state.ingredients.filter((ing) => ing.category === open).length
+            ? state.ingredients
+                .filter((ing) => ing.category === open)
+                .map((ing) => `
+                  <div class="inventory-row">
+                    <div class="inventory-row-left">
+                      <span class="inventory-row-name">${escapeHtml(ing.name)}</span>
+                      <span class="inventory-row-meta">${ing.acceptedLabel}</span>
+                    </div>
+                    <div class="inventory-row-right" style="display:flex;align-items:center;gap:8px;">
+                      <button
+                        class="ghost-button"
+                        data-action="delete-ingredient"
+                        data-ingredient-id="${ing.id}"
+                        type="button"
+                        style="padding:4px 8px;font-size:0.72rem;"
+                      >移除</button>
+                    </div>
                   </div>
-                  <div class="inventory-row-right" style="display:flex;align-items:center;gap:8px">
-                    ${hasStock ? `<span class="status-pill stock-${ing.stockStatus}">${stockLabel(ing.stockStatus)}</span>` : ""}
-                    <button
-                      class="${hasStock ? "ghost-button" : "primary-button"}"
-                      data-action="set-stock"
-                      data-ingredient-id="${ing.id}"
-                      data-stock="${hasStock ? "missing" : "in-stock"}"
-                      type="button"
-                    >${hasStock ? "移出" : "+ 加入"}</button>
-                  </div>
-                </div>
-              `;
-            }).join("")}
+                `).join("")
+            : `<div style="padding:12px;color:var(--text-3);font-size:0.78rem;text-align:center;">还没有${open}，点右上角新增</div>`
+          }
         </div>
       ` : ""}
     </section>
+  `;
+}
+
+function renderAddIngredientDrawer() {
+  const { name, category, acceptedLabel } = uiState.addingIngredient;
+  const categories = ["蛋白质", "蔬菜", "主食"];
+  const accepted = ["爱吃", "一般"];
+
+  return `
+    <div class="drawer-overlay" data-action="close-add-ingredient" role="button" aria-label="关闭"></div>
+    <div class="drawer">
+      <div class="drawer-header">
+        <div>
+          <p class="section-overline">Add Ingredient</p>
+          <h3 class="section-title">新增食物</h3>
+        </div>
+        <button class="ghost-button" data-action="close-add-ingredient" type="button">取消</button>
+      </div>
+      <div class="drawer-body">
+        <div class="drawer-group">
+          <p class="drawer-group-label">食材名称</p>
+          <input
+            data-role="ingredient-name"
+            type="text"
+            placeholder="例如：鸡腿肉"
+            value="${escapeHtml(name)}"
+            autocomplete="off"
+            style="width:100%;"
+          />
+        </div>
+        <div class="drawer-group">
+          <p class="drawer-group-label">分类</p>
+          <div class="filter-row">
+            ${categories.map((cat) => `
+              <button
+                class="filter-button ${category === cat ? "active" : ""}"
+                data-action="set-ingredient-category"
+                data-category="${cat}"
+                type="button"
+              >${cat}</button>
+            `).join("")}
+          </div>
+        </div>
+        <div class="drawer-group">
+          <p class="drawer-group-label">接受度</p>
+          <div class="filter-row">
+            ${accepted.map((lbl) => `
+              <button
+                class="filter-button ${acceptedLabel === lbl ? "active" : ""}"
+                data-action="set-ingredient-accepted"
+                data-label="${lbl}"
+                type="button"
+              >${lbl}</button>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+      <div style="padding:12px 16px 16px;">
+        <button
+          class="primary-button"
+          data-action="save-ingredient"
+          type="button"
+          style="width:100%;"
+        >加入库存</button>
+      </div>
+    </div>
   `;
 }
 
@@ -575,7 +694,7 @@ function renderShoppingPage(snapshot, today) {
     <section class="dashboard-board">
       ${renderCategoryPicker()}
       <section class="content-board shopping-board">
-        <section class="panel-card compact-card">
+        <section class="panel-card compact-card wide-card">
           <div class="shopping-header">
             <div>
               <p class="section-overline">Buy List</p>
@@ -586,20 +705,8 @@ function renderShoppingPage(snapshot, today) {
           ${
             shoppingList.length
               ? `<div class="shopping-sources inventory-list">${shoppingList.map((item) => renderShoppingItem(item)).join("")}</div>`
-              : `<div class="empty-state">当前未来三天不缺食材，今天不用额外跑菜市场。</div>`
+              : `<div class="empty-state">库存齐全，未来三天不缺食材。</div>`
           }
-        </section>
-        <section class="panel-card compact-card">
-          <div class="inventory-header">
-            <div>
-              <p class="section-overline">Fridge Status</p>
-              <h3 class="section-title">轻量库存</h3>
-            </div>
-            <span class="badge sage">${state.ingredients.length} 个食材</span>
-          </div>
-          <div class="inventory-list">
-            ${state.ingredients.map((ingredient) => renderInventoryRow(ingredient)).join("")}
-          </div>
         </section>
       </section>
     </section>
@@ -799,46 +906,40 @@ function generateSuggestions(count = 3) {
 }
 
 function renderSuggestedRecipes() {
-  const suggestions = generateSuggestions(3);
+  const suggestions = generateSuggestions(1);
   if (!suggestions.length) return "";
+
+  const s = suggestions[0];
+  const ingredients = s.ingredientIds
+    .map((id) => state.ingredients.find((i) => i.id === id))
+    .filter(Boolean);
+  const name = buildRecipeName(s.ingredientIds);
+  const slotLabel = s.slot === "lunch" ? "午餐" : "晚餐";
 
   return `
     <section class="panel-card compact-card wide-card">
       <div class="header-row">
         <div>
-          <p class="section-overline">Suggestions</p>
+          <p class="section-overline">Suggestion</p>
           <h3 class="section-title">建议菜谱</h3>
         </div>
-        <button class="ghost-button" data-action="refresh-suggestions" type="button" aria-label="重新生成建议" style="padding:6px 10px;font-size:1rem;">↻</button>
+        <button class="ghost-button" data-action="refresh-suggestions" type="button" aria-label="换一道" style="padding:5px 9px;font-size:1rem;line-height:1;">↻</button>
       </div>
-      <div class="recipe-list">
-        ${suggestions.map((s) => {
-          const ingredients = s.ingredientIds
-            .map((id) => state.ingredients.find((i) => i.id === id))
-            .filter(Boolean);
-          const name = buildRecipeName(s.ingredientIds);
-          const slotLabel = s.slot === "lunch" ? "午餐" : "晚餐";
-          return `
-            <article class="recipe-card compact-tile">
-              <div class="header-row">
-                <div>
-                  <p class="recipe-name">${escapeHtml(name)}</p>
-                  <p class="history-note">${slotLabel}建议</p>
-                </div>
-                <button
-                  class="primary-button"
-                  data-action="add-suggested-recipe"
-                  data-ingredient-ids="${s.ingredientIds.join(",")}"
-                  data-slot="${s.slot}"
-                  type="button"
-                >加入</button>
-              </div>
-              <div class="pill-row">
-                ${ingredients.map((i) => renderIngredientPill(i)).join("")}
-              </div>
-            </article>
-          `;
-        }).join("")}
+      <div class="header-row">
+        <div>
+          <p class="recipe-name">${escapeHtml(name)}</p>
+          <p class="history-note">${slotLabel}建议</p>
+        </div>
+        <button
+          class="primary-button"
+          data-action="add-suggested-recipe"
+          data-ingredient-ids="${s.ingredientIds.join(",")}"
+          data-slot="${s.slot}"
+          type="button"
+        >加入</button>
+      </div>
+      <div class="pill-row">
+        ${ingredients.map((i) => renderIngredientPill(i)).join("")}
       </div>
     </section>
   `;
