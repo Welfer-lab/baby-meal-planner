@@ -369,12 +369,12 @@ function renderCurrentPage(snapshot, today) {
   switch (uiState.activeTab) {
     case "history":
       return renderHistoryPage(snapshot, today);
-    case "shopping":
-      return renderShoppingPage(snapshot, today);
+    case "buy":
+      return renderBuyPage();
+    case "inventory":
+      return renderInventoryPage();
     case "library":
       return renderLibraryPage(today);
-    case "settings":
-      return renderSettingsPage();
     case "today":
     default:
       return renderTodayPage(snapshot, today);
@@ -574,7 +574,7 @@ function renderCategoryPicker() {
       <div class="header-row">
         <div>
           <p class="section-overline">My Ingredients</p>
-          <h3 class="section-title">选配食物</h3>
+          <h3 class="section-title">食物选配</h3>
         </div>
         <button class="primary-button" data-action="open-add-ingredient" type="button">+ 新增</button>
       </div>
@@ -592,28 +592,28 @@ function renderCategoryPicker() {
         }).join("")}
       </div>
       ${open ? `
-        <div class="inventory-list">
+        <div class="ingredient-toggle-grid">
           ${state.ingredients.filter((ing) => ing.category === open).length
             ? state.ingredients
                 .filter((ing) => ing.category === open)
-                .map((ing) => `
-                  <div class="inventory-row">
-                    <div class="inventory-row-left">
-                      <span class="inventory-row-name">${escapeHtml(ing.name)}</span>
-                      <span class="inventory-row-meta">${ing.acceptedLabel}</span>
+                .map((ing) => {
+                  const hasStock = ing.stockStatus === "in-stock";
+                  return `
+                    <div
+                      class="ingredient-toggle-card ${hasStock ? "is-stocked" : ""}"
+                      data-action="set-stock"
+                      data-ingredient-id="${ing.id}"
+                      data-stock="${hasStock ? "missing" : "in-stock"}"
+                      role="button"
+                      tabindex="0"
+                    >
+                      <span class="ingredient-toggle-name">${escapeHtml(ing.name)}</span>
+                      <span class="ingredient-toggle-label">${ing.acceptedLabel}</span>
+                      <span class="ingredient-toggle-status">${hasStock ? "有" : "没有"}</span>
                     </div>
-                    <div class="inventory-row-right" style="display:flex;align-items:center;gap:8px;">
-                      <button
-                        class="ghost-button"
-                        data-action="delete-ingredient"
-                        data-ingredient-id="${ing.id}"
-                        type="button"
-                        style="padding:4px 8px;font-size:0.72rem;"
-                      >移除</button>
-                    </div>
-                  </div>
-                `).join("")
-            : `<div style="padding:12px;color:var(--text-3);font-size:0.78rem;text-align:center;">还没有${open}，点右上角新增</div>`
+                  `;
+                }).join("")
+            : `<p class="empty-state" style="grid-column:1/-1;">还没有${open}，点右上角新增</p>`
           }
         </div>
       ` : ""}
@@ -687,12 +687,11 @@ function renderAddIngredientDrawer() {
   `;
 }
 
-function renderShoppingPage(snapshot, today) {
-  const shoppingList = buildShoppingList(state, { from: today, days: 3 });
+function renderBuyPage() {
+  const missingItems = state.ingredients.filter((i) => i.stockStatus === "missing");
 
   return `
     <section class="dashboard-board">
-      ${renderCategoryPicker()}
       <section class="content-board shopping-board">
         <section class="panel-card compact-card wide-card">
           <div class="shopping-header">
@@ -700,14 +699,78 @@ function renderShoppingPage(snapshot, today) {
               <p class="section-overline">Buy List</p>
               <h3 class="section-title">待买清单</h3>
             </div>
-            <span class="badge hot">${shoppingList.filter((item) => item.stockStatus === "missing").length} 项紧急</span>
+            <span class="badge hot">${missingItems.length} 项</span>
           </div>
           ${
-            shoppingList.length
-              ? `<div class="shopping-sources inventory-list">${shoppingList.map((item) => renderShoppingItem(item)).join("")}</div>`
-              : `<div class="empty-state">库存齐全，未来三天不缺食材。</div>`
+            missingItems.length
+              ? `<div class="inventory-list">${missingItems.map((ing) => `
+                  <div class="shopping-row">
+                    <div class="shopping-top">
+                      <div class="shopping-info">
+                        <p class="shopping-title">${escapeHtml(ing.name)}</p>
+                        <p class="helper-copy">${ing.category} · ${ing.acceptedLabel}</p>
+                      </div>
+                      <button
+                        class="primary-button"
+                        data-action="set-stock"
+                        data-ingredient-id="${ing.id}"
+                        data-stock="in-stock"
+                        type="button"
+                        style="flex-shrink:0;"
+                      >买到了</button>
+                    </div>
+                  </div>
+                `).join("")}</div>`
+              : `<div class="empty-state">库存齐全，没有待买食材。</div>`
           }
         </section>
+      </section>
+    </section>
+  `;
+}
+
+function renderInventoryPage() {
+  const categories = ["蛋白质", "蔬菜", "主食"];
+  return `
+    <section class="dashboard-board">
+      ${renderCategoryPicker()}
+      <section class="panel-card compact-card wide-card">
+        <div class="header-row">
+          <div>
+            <p class="section-overline">Stock Status</p>
+            <h3 class="section-title">食物选配</h3>
+          </div>
+          <span class="badge sage">${state.ingredients.filter((i) => i.stockStatus === "in-stock").length} 有货</span>
+        </div>
+        ${categories.map((cat) => {
+          const ings = state.ingredients.filter((i) => i.category === cat);
+          if (!ings.length) return "";
+          return `
+            <div>
+              <p class="drawer-group-label">${cat}</p>
+              <div class="ingredient-toggle-grid">
+                ${ings.map((ing) => {
+                  const hasStock = ing.stockStatus === "in-stock";
+                  return `
+                    <div
+                      class="ingredient-toggle-card ${hasStock ? "is-stocked" : ""}"
+                      data-action="set-stock"
+                      data-ingredient-id="${ing.id}"
+                      data-stock="${hasStock ? "missing" : "in-stock"}"
+                      role="button"
+                      tabindex="0"
+                    >
+                      <span class="ingredient-toggle-name">${escapeHtml(ing.name)}</span>
+                      <span class="ingredient-toggle-label">${ing.acceptedLabel}</span>
+                      <span class="ingredient-toggle-status">${hasStock ? "有" : "没有"}</span>
+                    </div>
+                  `;
+                }).join("")}
+              </div>
+            </div>
+          `;
+        }).join("")}
+        ${!state.ingredients.length ? `<div class="empty-state">还没有食物，点上方新增。</div>` : ""}
       </section>
     </section>
   `;
@@ -1186,9 +1249,9 @@ function renderBottomNav() {
   const items = [
     ["today", "今日"],
     ["history", "记录"],
-    ["shopping", "采购"],
+    ["inventory", "库存"],
     ["library", "菜谱"],
-    ["settings", "设置"],
+    ["buy", "采购"],
   ];
 
   return `

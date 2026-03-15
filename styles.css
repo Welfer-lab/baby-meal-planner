@@ -861,6 +861,61 @@ textarea {
 
 
 /* ==========================================
+   食材切换卡片网格
+   ========================================== */
+.ingredient-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.ingredient-toggle-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 12px 8px;
+  border-radius: var(--r);
+  border: 2px solid var(--border-mid);
+  background: var(--surface-2);
+  cursor: pointer;
+  text-align: center;
+  transition: background 120ms, border-color 120ms;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.ingredient-toggle-card.is-stocked {
+  background: var(--green-bg);
+  border-color: var(--green-border);
+}
+
+.ingredient-toggle-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.ingredient-toggle-label {
+  font-size: 0.62rem;
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+.ingredient-toggle-status {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.ingredient-toggle-card.is-stocked .ingredient-toggle-status {
+  color: var(--green);
+}
+
+/* ==========================================
    Swap panel
    ========================================== */
 .swap-panel {
@@ -1110,6 +1165,7 @@ textarea {
   text-transform: uppercase;
   color: var(--text-3);
   margin-bottom: 6px;
+  margin-top: 10px;
 }
 
 .drawer-check {
