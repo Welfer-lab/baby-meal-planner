@@ -27,7 +27,8 @@ const uiState = {
   openCategory: null,
   editingRecipeId: null,
   creatingRecipe: null,
-  addingIngredient: null, // { name, category, acceptedLabel }
+  addingIngredient: null,
+  schedulingRecipeId: null,
   suggestionSeed: Date.now(),
   notice: "",
   installPrompt: null,
@@ -122,6 +123,21 @@ function attachEvents() {
       case "refresh-suggestions":
         uiState.suggestionSeed = Date.now();
         render();
+        break;
+      case "open-schedule-recipe":
+        uiState.schedulingRecipeId = actionTarget.dataset.recipeId;
+        render();
+        break;
+      case "close-schedule-recipe":
+        uiState.schedulingRecipeId = null;
+        render();
+        break;
+      case "schedule-recipe":
+        uiState.schedulingRecipeId = null;
+        commit(
+          replaceMealRecipe(state, actionTarget.dataset.date, actionTarget.dataset.slot, actionTarget.dataset.recipeId),
+          "已放入计划"
+        );
         break;
       case "open-recipe-creator":
         uiState.creatingRecipe = { slot: "lunch", ingredientIds: [] };
@@ -352,6 +368,7 @@ function render() {
     ${uiState.editingRecipeId ? renderIngredientDrawer(uiState.editingRecipeId) : ""}
     ${uiState.creatingRecipe ? renderRecipeCreatorDrawer() : ""}
     ${uiState.addingIngredient ? renderAddIngredientDrawer() : ""}
+    ${uiState.schedulingRecipeId ? renderScheduleDrawer(uiState.schedulingRecipeId) : ""}
   `;
 }
 
@@ -436,8 +453,8 @@ function renderMealCard(date, meal) {
 }
 
 function renderUpcomingPlan(plan) {
-  const lunch = state.recipes.find((recipe) => recipe.id === plan.meals[0].recipeId);
-  const dinner = state.recipes.find((recipe) => recipe.id === plan.meals[1].recipeId);
+  const lunch = state.recipes.find((recipe) => recipe.id === plan.meals[0]?.recipeId);
+  const dinner = state.recipes.find((recipe) => recipe.id === plan.meals[1]?.recipeId);
 
   return `
     <article class="upcoming-card compact-tile">
@@ -445,11 +462,11 @@ function renderUpcomingPlan(plan) {
       <h3 class="upcoming-day">${weekdayLabel(plan.date)}</h3>
       <div class="upcoming-item">
         <span class="badge hot">午餐</span>
-        <p class="helper-copy">${lunch.name}</p>
+        <p class="helper-copy">${lunch?.name ?? "未安排"}</p>
       </div>
       <div class="upcoming-item">
         <span class="badge sage">晚餐</span>
-        <p class="helper-copy">${dinner.name}</p>
+        <p class="helper-copy">${dinner?.name ?? "未安排"}</p>
       </div>
     </article>
   `;
@@ -506,13 +523,6 @@ function renderHistoryPage(snapshot, today) {
               `
               : `<div class="empty-state">这里会慢慢形成“最近吃过什么”的家庭记忆，避免隔天又撞菜。</div>`
           }
-        </section>
-        <section class="subtle-card compact-card">
-          <div class="subtle-header">
-            <p class="section-overline">Today Tip</p>
-            <span class="badge">${formatLongDate(today)}</span>
-          </div>
-          <p class="helper-copy">第一版只把“已完成”的餐次放进历史，避免计划很多但实际没吃造成回看误导。</p>
         </section>
       </section>
     </section>
@@ -682,6 +692,56 @@ function renderAddIngredientDrawer() {
           type="button"
           style="width:100%;"
         >加入库存</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderScheduleDrawer(recipeId) {
+  const recipe = state.recipes.find((r) => r.id === recipeId);
+  if (!recipe) return "";
+  const today = getTodayKey();
+  const tomorrow = (() => {
+    const [y, m, d] = today.split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + 1);
+    return dt.toISOString().slice(0, 10);
+  })();
+
+  const slots = [
+    { date: today,    slot: "lunch",  label: "今日午餐" },
+    { date: today,    slot: "dinner", label: "今日晚餐" },
+    { date: tomorrow, slot: "lunch",  label: "明日午餐" },
+    { date: tomorrow, slot: "dinner", label: "明日晚餐" },
+  ];
+
+  return `
+    <div class="drawer-overlay" data-action="close-schedule-recipe" role="button" aria-label="关闭"></div>
+    <div class="drawer">
+      <div class="drawer-header">
+        <div>
+          <p class="section-overline">Schedule</p>
+          <h3 class="section-title">${escapeHtml(recipe.name)}</h3>
+        </div>
+        <button class="ghost-button" data-action="close-schedule-recipe" type="button">取消</button>
+      </div>
+      <div class="drawer-body">
+        <div class="inventory-list">
+          ${slots.map(({ date, slot, label }) => `
+            <div
+              class="inventory-row"
+              data-action="schedule-recipe"
+              data-date="${date}"
+              data-slot="${slot}"
+              data-recipe-id="${recipeId}"
+              role="button"
+              tabindex="0"
+            >
+              <span class="inventory-row-name">${label}</span>
+              <span class="inventory-row-meta">${formatShortDate(date)}</span>
+            </div>
+          `).join("")}
+        </div>
       </div>
     </div>
   `;
@@ -924,12 +984,20 @@ function renderRecipeCard(recipe) {
       <div class="pill-row">
         ${ingredients.map((ingredient) => renderIngredientPill(ingredient)).join("")}
       </div>
-      <button
-        class="ghost-button"
-        data-action="delete-recipe"
-        data-recipe-id="${recipe.id}"
-        type="button"
-      >删除</button>
+      <div style="display:flex;gap:8px;">
+        <button
+          class="primary-button"
+          data-action="open-schedule-recipe"
+          data-recipe-id="${recipe.id}"
+          type="button"
+        >放入计划</button>
+        <button
+          class="ghost-button"
+          data-action="delete-recipe"
+          data-recipe-id="${recipe.id}"
+          type="button"
+        >删除</button>
+      </div>
     </article>
   `;
 }
