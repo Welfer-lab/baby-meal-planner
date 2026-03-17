@@ -239,6 +239,17 @@ test("add ingredient drawer filter buttons disable press bounce animation", () =
 test("vercel deployment config rewrites all routes to index for static pwa hosting", () => {
   const config = readFileSync(new URL("../vercel.json", import.meta.url), "utf8");
 
+  assert.equal(config.includes("\"buildCommand\": \"npm run build\""), true);
+  assert.equal(config.includes("\"outputDirectory\": \"dist\""), true);
   assert.equal(config.includes("\"source\": \"/(.*)\""), true);
   assert.equal(config.includes("\"destination\": \"/index.html\""), true);
+});
+
+test("build script creates a dedicated dist output for vercel static hosting", () => {
+  const pkg = readFileSync(new URL("../package.json", import.meta.url), "utf8");
+  const buildScript = readFileSync(new URL("../scripts/build.mjs", import.meta.url), "utf8");
+
+  assert.equal(pkg.includes("\"build\": \"node scripts/build.mjs\""), true);
+  assert.equal(buildScript.includes("mkdirSync(distDir"), true);
+  assert.equal(buildScript.includes("copyFileSync"), true);
 });
