@@ -21,7 +21,7 @@ const STORAGE_KEY = "baby-meal-planner-state-v1";
 const root = document.querySelector("#app");
 
 const uiState = {
-  activeTab: "today",
+  activeTab: new URLSearchParams(location.search).get("tab") || "today",
   swapKey: null,
   recipeFilter: "all",
   openCategory: null,
@@ -348,6 +348,7 @@ function announce(message) {
 }
 
 function render() {
+  document.body.dataset.tab = uiState.activeTab;
   const today = getTodayKey();
   const previousPlanCount = state.plans.length;
   state = ensurePlanWindow(state, today);
@@ -375,6 +376,7 @@ function render() {
 function renderHero(snapshot, today) {
   return `
     <section class="hero-card">
+      <img class="hero-avatar" src="./public/pic.jpg" alt="小橙汁" />
       <p class="hero-overline">${formatLongDate(today)}</p>
       <h1 class="hero-title">${escapeHtml(state.profile.homeTitle)}</h1>
       <p class="hero-copy">${escapeHtml(state.profile.familyNote)}</p>
@@ -489,24 +491,13 @@ function renderQuickShopping(item) {
 function renderHistoryPage(snapshot, today) {
   return `
     <section class="dashboard-board">
-      ${renderLeadCard({
-        overline: "History",
-        title: "回看最近吃过什么",
-        copy: "把已完成的真实喂养记录卡片化，回看时不会像翻一长页流水账。",
-        badge: `${snapshot.historyDays.length} 天有记录`,
-        metrics: [
-          ["最近记录", snapshot.historyDays.length ? formatShortDate(snapshot.historyDays[0].date) : "还没有", "plain"],
-          ["食材记忆", `${snapshot.ingredientHistory.length} 个`, "sage"],
-          ["使用方式", "先回看再替换", "warm"],
-        ],
-      })}
       <section class="content-board history-board">
         ${
           snapshot.historyDays.length
             ? snapshot.historyDays.map((day) => renderHistoryDay(day)).join("")
             : `<div class="empty-state wide-card">今天先从首页标记一顿“已完成”，这里就会开始累计你们家的真实喂养记录。</div>`
         }
-        <section class="panel-card compact-card wide-card">
+        <section class="panel-card compact-card wide-card" style="margin-top:16px">
           <div class="header-row">
             <div>
               <p class="section-overline">Ingredient Memory</p>
@@ -807,13 +798,13 @@ function renderInventoryPage() {
           if (!ings.length) return "";
           return `
             <div>
-              <p class="drawer-group-label">${cat}</p>
+              <p class="drawer-group-label"><span class="badge ${categoryClass(cat)}">${cat}</span></p>
               <div class="ingredient-toggle-grid">
                 ${ings.map((ing) => {
                   const hasStock = ing.stockStatus === "in-stock";
                   return `
                     <div
-                      class="ingredient-toggle-card ${hasStock ? "is-stocked" : ""}"
+                      class="ingredient-toggle-card ${hasStock ? "is-stocked " + categoryClass(cat) : ""}"
                       data-action="set-stock"
                       data-ingredient-id="${ing.id}"
                       data-stock="${hasStock ? "missing" : "in-stock"}"
@@ -1373,10 +1364,18 @@ function renderSwapOption(date, slot, recipe) {
   `;
 }
 
+function categoryClass(category) {
+  if (category === "蛋白质") return "cat-protein";
+  if (category === "蔬菜") return "cat-veg";
+  if (category === "主食") return "cat-staple";
+  return "";
+}
+
 function renderIngredientPill(ingredient) {
+  const catCls = ingredient?.category ? categoryClass(ingredient.category) : "";
   return `
-    <span class="pill stock-${ingredient.stockStatus}">
-      ${ingredient.name} · ${stockLabel(ingredient.stockStatus)}
+    <span class="pill ${catCls}">
+      ${ingredient.name}
     </span>
   `;
 }

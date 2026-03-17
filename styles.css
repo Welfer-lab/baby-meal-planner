@@ -1,53 +1,63 @@
 /* ==========================================
    小橙汁辅食计划
-   设计对标 journeygen.cc：
-   · 点阵背景
-   · 2px 深色实边框卡片，圆角 8px
-   · Space Grotesk，标题极重，辅助极小
-   · 白底 + 粉色 accent
+   · 软马卡龙三色
+   · 天蓝  #7EB8D4 — 主按钮 / 蛋白质
+   · 薄荷绿 #7DC9A0 — 有库存 / 蔬菜
+   · 淡橙  #F0A882 — 午餐 / 主食 / 点缀
+   · 底色  #F5F8FF 淡蓝白
    ========================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;900&family=ZCOOL+KuaiLe&display=swap');
 
 /* ==========================================
    Design Tokens
    ========================================== */
 :root {
   /* 背景 */
-  --bg: #f9fafb;
+  --bg: #F5F8FF;
 
   /* 卡片 & 表面 */
   --surface: #ffffff;
-  --surface-2: #f3f4f6;
-  --surface-3: #e5e7eb;
+  --surface-2: #EDF2FA;
+  --surface-3: #DDE6F0;
 
   /* 边框 */
-  --border: #111827;          /* 2px 深色实边框 */
-  --border-light: #e5e7eb;    /* 内部分割线 */
-  --border-mid: #d1d5db;
+  --border: #DDE6F0;
+  --border-light: #E8EFF8;
+  --border-mid: #DDE6F0;
 
   /* 文字 */
-  --text: #111827;
-  --text-2: #6b7280;
-  --text-3: #9ca3af;
+  --text: #2D3A4A;
+  --text-2: #7A8FA6;
+  --text-3: #A8BCCF;
 
-  /* Accent — pink-500 */
-  --accent: #ec4899;
-  --accent-bg: #fdf2f8;
-  --accent-border: #fbcfe8;
-  --accent-dark: #be185d;
+  /* 主强调色 — 天空蓝 */
+  --accent: #7EB8D4;
+  --accent-bg: #E3F1F8;
+  --accent-border: #B8D8EB;
+  --accent-dark: #4A8BAD;
 
-  /* 功能色 */
-  --green: #059669;
-  --green-bg: #d1fae5;
-  --green-border: #6ee7b7;
-  --amber: #d97706;
-  --amber-bg: #fef3c7;
-  --amber-border: #fcd34d;
-  --red: #dc2626;
-  --red-bg: #fee2e2;
-  --red-border: #fca5a5;
+  /* 次强调色 — 薄荷绿（用于 avatar border 等点缀） */
+  --accent2: #7DC9A0;
+  --accent2-bg: #D4EED8;
+  --accent2-border: #A8D8BC;
+  --accent2-dark: #3E8A60;
 
+  /* 状态色：有库存 — 薄荷绿 */
+  --stocked-bg: #D4EED8;
+  --stocked-text: #4A9E65;
+  --stocked-border: #A8D8BC;
+
+  /* 状态色：没有库存 — 薰衣草灰 */
+  --missing-bg: #F0EEF8;
+  --missing-text: #9090B8;
+  --missing-border: #D4D0EC;
+
+  /* 马卡龙第三色 — 淡橙（午餐 / 主食 / hero装饰） */
+  --peach: #F0A882;
+  --peach-bg: #FDE8DC;
+  --peach-border: #F8CABA;
+  --peach-dark: #C47050;
 
   /* 圆角 */
   --r: 8px;
@@ -97,7 +107,7 @@ body {
   color: var(--text);
   text-rendering: optimizeLegibility;
   background-color: var(--bg);
-  background-image: radial-gradient(#d1d5db 1px, transparent 1px);
+  background-image: radial-gradient(#C8D8E8 1px, transparent 1px);
   background-size: 20px 20px;
 }
 
@@ -169,28 +179,47 @@ textarea {
 .inventory-card,
 .settings-card {
   background: var(--surface);
-  border: 2px solid var(--border);
+  border: 1.5px solid var(--border);
   border-radius: var(--r);
-  box-shadow: none;
+  box-shadow: 0 2px 8px rgba(100, 140, 180, 0.08);
 }
 
 /* Hero 卡片 */
 .hero-card {
-  padding: 18px 16px 16px;
+  padding: 16px 16px 16px 26px;
   position: relative;
   overflow: hidden;
 }
 
-/* Hero 右上角点缀 */
-.hero-card::after {
+/* 左侧淡橙竖条装饰 */
+.hero-card::before {
   content: "";
   position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 12px;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--peach);
+}
+
+/* Hero 右上角头像 */
+.hero-avatar {
+  position: absolute;
   right: 14px;
-  top: 14px;
-  width: 10px;
-  height: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
-  background: var(--accent);
+  object-fit: cover;
+  object-position: center center;
+  border: 3px solid var(--accent2-border);
+}
+
+/* Hero 右上角点缀（头像存在时隐藏） */
+.hero-card::after {
+  content: none;
 }
 
 /* ==========================================
@@ -207,12 +236,17 @@ textarea {
   color: var(--text-3);
 }
 
+.section-overline {
+  color: var(--accent);
+}
+
 .hero-title {
   margin: 6px 0 0;
+  font-family: "ZCOOL KuaiLe", "PingFang SC", sans-serif;
   font-size: 1.9rem;
-  font-weight: 900;
-  letter-spacing: -0.04em;
-  line-height: 1.05;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
 }
 
 .section-title {
@@ -238,6 +272,10 @@ textarea {
 .hero-copy {
   margin: 8px 0 14px;
   max-width: 34ch;
+  font-family: "ZCOOL KuaiLe", "PingFang SC", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
 }
 
 .page-copy {
@@ -327,15 +365,34 @@ textarea {
 }
 
 .badge.hot {
+  background: var(--peach-bg);
+  color: var(--peach-dark);
+  border-color: var(--peach-border);
+}
+
+.badge.sage {
+  background: var(--stocked-bg);
+  color: var(--stocked-text);
+  border-color: var(--stocked-border);
+}
+
+/* 食材分类马卡龙三色 */
+.badge.cat-protein {
   background: var(--accent-bg);
   color: var(--accent-dark);
   border-color: var(--accent-border);
 }
 
-.badge.sage {
-  background: var(--green-bg);
-  color: var(--green);
-  border-color: var(--green-border);
+.badge.cat-veg {
+  background: var(--stocked-bg);
+  color: var(--stocked-text);
+  border-color: var(--stocked-border);
+}
+
+.badge.cat-staple {
+  background: var(--peach-bg);
+  color: var(--peach-dark);
+  border-color: var(--peach-border);
 }
 
 .pill {
@@ -344,31 +401,50 @@ textarea {
   color: var(--text-2);
 }
 
+/* 食材分类马卡龙三色 pill */
+.pill.cat-protein {
+  background: var(--accent-bg);
+  color: var(--accent-dark);
+  border-color: var(--accent-border);
+}
+
+.pill.cat-veg {
+  background: var(--stocked-bg);
+  color: var(--stocked-text);
+  border-color: var(--stocked-border);
+}
+
+.pill.cat-staple {
+  background: var(--peach-bg);
+  color: var(--peach-dark);
+  border-color: var(--peach-border);
+}
+
 .pill.stock-missing,
 .status-pill.stock-missing {
-  background: var(--red-bg);
-  color: var(--red);
-  border-color: var(--red-border);
+  background: var(--missing-bg);
+  color: var(--missing-text);
+  border-color: var(--missing-border);
 }
 
 .pill.stock-low,
 .status-pill.stock-low {
-  background: var(--amber-bg);
-  color: var(--amber);
-  border-color: var(--amber-border);
+  background: var(--accent-bg);
+  color: var(--accent-dark);
+  border-color: var(--accent-border);
 }
 
 .pill.stock-in-stock,
 .status-pill.stock-in-stock {
-  background: var(--green-bg);
-  color: var(--green);
-  border-color: var(--green-border);
+  background: var(--stocked-bg);
+  color: var(--stocked-text);
+  border-color: var(--stocked-border);
 }
 
 .status-pill.completed {
-  background: var(--green-bg);
-  color: var(--green);
-  border-color: var(--green-border);
+  background: var(--stocked-bg);
+  color: var(--stocked-text);
+  border-color: var(--stocked-border);
 }
 
 .status-pill.pending {
@@ -395,18 +471,18 @@ textarea {
 }
 
 .summary-card.warm {
-  background: var(--amber-bg);
-  border-color: var(--amber-border);
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
 }
 
 .summary-card.sage {
-  background: var(--green-bg);
-  border-color: var(--green-border);
+  background: var(--stocked-bg);
+  border-color: var(--stocked-border);
 }
 
 .summary-card.danger {
-  background: var(--red-bg);
-  border-color: var(--red-border);
+  background: var(--missing-bg);
+  border-color: var(--missing-border);
 }
 
 .summary-card:last-child:nth-child(odd) {
@@ -471,8 +547,8 @@ textarea {
 
 
 .meal-card.is-complete {
-  border-color: var(--green);
-  background: var(--green-bg);
+  border-color: var(--stocked-border);
+  background: var(--stocked-bg);
 }
 
 .meal-card,
@@ -587,9 +663,9 @@ textarea {
 }
 
 .secondary-button {
-  background: var(--green-bg);
-  color: var(--green);
-  border: 1px solid var(--green-border);
+  background: var(--accent-bg);
+  color: var(--accent-dark);
+  border: 1px solid var(--accent-border);
 }
 
 .ghost-button {
@@ -630,6 +706,7 @@ textarea {
   color: var(--accent-dark);
 }
 
+
 /* ==========================================
    Bottom Nav — 白底 2px 边框
    ========================================== */
@@ -642,8 +719,8 @@ textarea {
   padding: 6px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.97);
-  border: 2px solid var(--border);
-  box-shadow: 3px 3px 0 var(--border);
+  border: 1.5px solid var(--border);
+  box-shadow: 0 4px 16px rgba(100, 140, 180, 0.14);
   z-index: 30;
 }
 
@@ -681,12 +758,25 @@ textarea {
 .card-grid,
 .shopping-sources,
 .history-meals,
-.ingredient-grid,
 .recipe-grid,
 .recipe-list,
 .settings-grid {
   display: grid;
   gap: 0;
+  grid-template-columns: 1fr;
+}
+
+.history-meals {
+  gap: 8px;
+}
+
+.recipe-list {
+  gap: 8px;
+}
+
+.ingredient-grid {
+  display: grid;
+  gap: 8px;
   grid-template-columns: 1fr;
 }
 
@@ -805,8 +895,8 @@ textarea {
 }
 
 .checkbox-button.checked {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--accent);
+  border-color: var(--accent-dark);
 }
 
 .checkbox-button.checked::after {
@@ -887,8 +977,23 @@ textarea {
 }
 
 .ingredient-toggle-card.is-stocked {
-  background: var(--green-bg);
-  border-color: var(--green-border);
+  background: var(--stocked-bg);
+  border-color: var(--stocked-border);
+}
+
+.ingredient-toggle-card.is-stocked.cat-protein {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+}
+
+.ingredient-toggle-card.is-stocked.cat-veg {
+  background: var(--stocked-bg);
+  border-color: var(--stocked-border);
+}
+
+.ingredient-toggle-card.is-stocked.cat-staple {
+  background: var(--peach-bg);
+  border-color: var(--peach-border);
 }
 
 .ingredient-toggle-name {
@@ -912,7 +1017,15 @@ textarea {
 }
 
 .ingredient-toggle-card.is-stocked .ingredient-toggle-status {
-  color: var(--green);
+  color: var(--stocked-text);
+}
+
+.ingredient-toggle-card.is-stocked.cat-protein .ingredient-toggle-status {
+  color: var(--accent-dark);
+}
+
+.ingredient-toggle-card.is-stocked.cat-staple .ingredient-toggle-status {
+  color: var(--peach-dark);
 }
 
 /* ==========================================
@@ -988,41 +1101,94 @@ textarea {
 }
 
 /* ==========================================
-   iPhone small screen
+   手机端（≤ 430px）— iPhone 14 Pro Max 适配
+   430×932pt，Dynamic Island 安全区顶 ~59px，底 ~34px
    ========================================== */
 @media (max-width: 430px) {
   :root {
-    --shell-inline: 12px;
-    --shell-top: 12px;
-    --shell-bottom: 108px;
+    --shell-inline: 16px;
+    --shell-top: 8px;
+    /* bottom 留给 nav-wrap 高度(~70px) + home indicator(~34px) + 间隙 */
+    --shell-bottom: 90px;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow-x: hidden;
   }
 
   body, #app {
-    min-height: var(--iphone-pro-max-height);
+    min-height: 100dvh;
   }
 
   .app-shell {
     width: 100%;
-    min-height: max(100dvh, var(--iphone-pro-max-height));
+    min-height: 100dvh;
+    /* 顶部额外加上 Dynamic Island 安全区 */
+    padding-top: calc(var(--shell-top) + var(--safe-top));
+    padding-bottom: calc(var(--shell-bottom) + var(--safe-bottom));
+    padding-left: calc(var(--shell-inline) + var(--safe-left));
+    padding-right: calc(var(--shell-inline) + var(--safe-right));
   }
 
+  /* 手机端强制单列 */
+  .today-board,
+  .shopping-board,
+  .settings-board,
+  .history-board,
+  .library-board,
+  .content-board,
+  .dashboard-board,
+  .mini-grid,
+  .card-grid,
+  .history-meals,
+  .ingredient-grid,
+  .recipe-grid,
+  .settings-grid,
+  .summary-strip {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 所有卡片独占整行 */
+  .meal-card,
+  .panel-card,
+  .history-card,
+  .settings-card,
+  .shopping-card,
+  .subtle-card,
+  .recipe-card,
+  .upcoming-card {
+    grid-column: 1 / -1;
+  }
+
+  /* nav bar — 贴底部安全区，宽铺满 */
   .nav-wrap {
-    width: min(
-      calc(100% - var(--safe-left) - var(--safe-right) - 10px),
-      calc(var(--iphone-pro-max-width) - 8px)
-    );
-    bottom: calc(8px + var(--safe-bottom));
+    width: calc(100% - 20px);
+    bottom: calc(10px + var(--safe-bottom));
+    border-radius: 16px;
   }
 
   .nav-button {
-    padding: 9px 3px;
+    padding: 10px 4px;
+  }
+
+  .nav-label {
+    font-size: 0.65rem;
+  }
+
+  /* 卡片间距收紧 */
+  .page-stack,
+  .dashboard-board,
+  .content-board {
+    gap: 10px;
   }
 }
 
 /* ==========================================
-   401px+ 双列
+   平板宽屏（> 600px）— 双列布局
    ========================================== */
-@media (min-width: 401px) {
+@media (min-width: 601px) {
   .summary-strip {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -1039,7 +1205,7 @@ textarea {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  /* 主卡片始终独占整行 */
+  /* 主卡片独占整行 */
   .content-board > .meal-card,
   .content-board > .panel-card,
   .content-board > .history-card,

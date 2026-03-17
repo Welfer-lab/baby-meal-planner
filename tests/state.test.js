@@ -152,3 +152,17 @@ test("today meal cards use collapsible detail panels instead of fully expanded l
   assert.equal(stylesheet.includes(".meal-details"), true);
   assert.equal(stylesheet.includes(".meal-detail-grid"), true);
 });
+
+test("history meal cards keep a visible gap between sibling cards", () => {
+  const stylesheet = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+
+  assert.equal(stylesheet.includes(".history-meals"), true);
+  assert.equal(stylesheet.includes("gap: 8px;"), true);
+});
+
+test("recipe cards keep a visible vertical gap between sibling cards", () => {
+  const stylesheet = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+
+  assert.equal(stylesheet.includes(".recipe-list"), true);
+  assert.equal(stylesheet.includes("gap: 8px;"), true);
+});

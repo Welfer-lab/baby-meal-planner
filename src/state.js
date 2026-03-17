@@ -248,8 +248,8 @@ export function createSeedState(baseDate = new Date().toISOString().slice(0, 10)
       babyName: "小橙汁",
       stageLabel: "9-12个月",
       defaultMeals: ["lunch", "dinner"],
-      homeTitle: "小橙汁的辅食小站",
-      familyNote: "优先解决今天吃什么，再顺手把缺的菜买上。",
+      homeTitle: "小橙汁开饭啦",
+      familyNote: "今天吃什么，明天长什么",
     },
     ingredients: cloneState(seedIngredients),
     recipes: cloneState(seedRecipes),
@@ -388,9 +388,10 @@ export function getUpcomingPlans(state, fromDate, days = 3) {
 
 export function getHistoryDays(state, currentDate) {
   const recipeMap = getRecipeMap(state);
+  const fiveDaysAgo = addDays(currentDate, -4);
 
   return state.plans
-    .filter((plan) => plan.date <= currentDate && plan.meals.some((meal) => meal.completed))
+    .filter((plan) => plan.date >= fiveDaysAgo && plan.date <= currentDate && plan.meals.some((meal) => meal.completed))
     .map((plan) => ({
       date: plan.date,
       meals: plan.meals.map((meal) => ({

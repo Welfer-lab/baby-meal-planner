@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Style B — 软马卡龙三色</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #D8E4EE;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+  }
+
+  /* ── Meta badge ── */
+  .meta-strip {
+    width: 390px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .style-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #2D3A4A;
+    color: #F5F8FF;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 6px 14px;
+    border-radius: 20px;
+    width: fit-content;
+  }
+
+  .style-badge .tag {
+    background: #7EB8D4;
+    color: #fff;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+  }
+
+  .swatch-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.7);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+  }
+
+  .swatch-label {
+    font-size: 9px;
+    color: #4A6070;
+    text-align: center;
+    margin-top: 2px;
+    line-height: 1.2;
+    width: 28px;
+  }
+
+  .swatch-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── Phone shell ── */
+  .phone {
+    width: 390px;
+    min-height: 844px;
+    background: #F5F8FF;
+    border-radius: 44px;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 8px #1E2A36,
+      0 0 0 10px #2D3A4A,
+      0 32px 80px rgba(0,0,0,0.32);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Status bar ── */
+  .status-bar {
+    height: 50px;
+    background: #F5F8FF;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px 0;
+    flex-shrink: 0;
+  }
+
+  .status-time {
+    font-size: 15px;
+    font-weight: 600;
+    color: #2D3A4A;
+  }
+
+  .status-icons svg { fill: #2D3A4A; }
+
+  /* ── Scroll content ── */
+  .scroll-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: 88px;
+  }
+  .scroll-content::-webkit-scrollbar { display: none; }
+
+  /* ── App bar ── */
+  .app-bar {
+    padding: 12px 20px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #F5F8FF;
+  }
+
+  .app-bar-left .greeting {
+    font-size: 12px;
+    color: #7A8FA6;
+  }
+
+  .app-bar-left .app-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #2D3A4A;
+    letter-spacing: -0.3px;
+  }
+
+  .avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: #E3F1F8;
+    border: 2.5px solid #7EB8D4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  /* ── Page content ── */
+  .page-content {
+    padding: 8px 20px 0;
+  }
+
+  /* ── Hero card ── */
+  .hero-card {
+    background: linear-gradient(135deg, #7EB8D4 0%, #6AACC8 60%, #5A9EBE 100%);
+    border-radius: 20px;
+    padding: 20px 22px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-card::before {
+    content: '';
+    position: absolute;
+    top: -25px;
+    right: -15px;
+    width: 120px;
+    height: 120px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 50%;
+  }
+
+  .hero-card::after {
+    content: '';
+    position: absolute;
+    bottom: -35px;
+    left: 60%;
+    width: 80px;
+    height: 80px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 50%;
+  }
+
+  /* subtle wave pattern */
+  .hero-wave {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: rgba(255,255,255,0.07);
+    clip-path: ellipse(55% 100% at 50% 100%);
+  }
+
+  .hero-date-chip {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(255,255,255,0.22);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    gap: 4px;
+  }
+
+  .hero-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .hero-subtitle {
+    font-size: 12px;
+    color: rgba(255,255,255,0.82);
+    margin-bottom: 14px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 16px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .hero-stat { display: flex; flex-direction: column; }
+  .hero-stat-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+  }
+  .hero-stat-label { font-size: 10px; color: rgba(255,255,255,0.72); margin-top: 2px; }
+  .hero-stat-divider { width: 1px; background: rgba(255,255,255,0.25); margin: 2px 0; }
+
+  /* ── Section header ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    margin-top: 4px;
+  }
+
+  .section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #2D3A4A;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .section-title::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 16px;
+    background: #7EB8D4;
+    border-radius: 2px;
+  }
+
+  .section-more {
+    font-size: 12px;
+    color: #7EB8D4;
+    font-weight: 500;
+  }
+
+  /* ── Meal cards ── */
+  .meal-card {
+    background: #FFFFFF;
+    border: 1.5px solid #DDE6F0;
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+
+  .meal-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .meal-type-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .meal-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: #E3F1F8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .meal-info .meal-type {
+    font-size: 13px;
+    font-weight: 700;
+    color: #2D3A4A;
+  }
+
+  .meal-info .meal-time {
+    font-size: 10px;
+    color: #7A8FA6;
+    margin-top: 1px;
+  }
+
+  .badge-stock {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 4px 9px;
+    border-radius: 10px;
+  }
+
+  .badge-have {
+    background: #D4EED8;
+    color: #4A9E65;
+  }
+
+  .badge-none {
+    background: #F0EEF8;
+    color: #9090B8;
+  }
+
+  .meal-dish-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #2D3A4A;
+    margin-bottom: 8px;
+  }
+
+  .ingredient-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .pill {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 20px;
+    color: #7A8FA6;
+  }
+
+  /* soft mint / peach / blue pill variants */
+  .pill-mint   { background: #B8E8D0; color: #2A7A50; border: none; }
+  .pill-peach  { background: #F8D8C8; color: #A05040; border: none; }
+  .pill-blue   { background: #C8DCF8; color: #3A5A8A; border: none; }
+  .pill-plain  { background: #EEF3FA; color: #7A8FA6; border: 1px solid #DDE6F0; }
+
+  .meal-footer {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #DDE6F0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .meal-nutrition {
+    display: flex;
+    gap: 10px;
+  }
+
+  .nutrition-item { display: flex; flex-direction: column; align-items: center; }
+  .nutrition-value { font-size: 12px; font-weight: 700; color: #2D3A4A; }
+  .nutrition-label { font-size: 9px; color: #7A8FA6; }
+
+  .meal-action-btn {
+    font-size: 11px;
+    font-weight: 600;
+    color: #7EB8D4;
+    background: #E3F1F8;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
+  /* ── Quick-action row ── */
+  .quick-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .quick-card {
+    flex: 1;
+    background: #FFFFFF;
+    border: 1.5px solid #DDE6F0;
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .quick-card-icon { font-size: 22px; margin-bottom: 2px; }
+  .quick-card-title { font-size: 12px; font-weight: 700; color: #2D3A4A; }
+  .quick-card-sub { font-size: 10px; color: #7A8FA6; }
+
+  /* ── CTA button ── */
+  .cta-wrap {
+    padding: 0 20px 16px;
+  }
+
+  .cta-btn {
+    width: 100%;
+    background: #7EB8D4;
+    color: #fff;
+    border: none;
+    border-radius: 16px;
+    padding: 15px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 4px 16px rgba(126,184,212,0.38);
+  }
+
+  .cta-btn-sub {
+    font-size: 10px;
+    font-weight: 400;
+    opacity: 0.85;
+    margin-left: 4px;
+  }
+
+  /* ── Bottom nav ── */
+  .bottom-nav {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 82px;
+    background: #FFFFFF;
+    border-top: 1.5px solid #DDE6F0;
+    display: flex;
+    align-items: flex-start;
+    padding-top: 8px;
+    padding-bottom: 16px;
+  }
+
+  .nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 0;
+    cursor: pointer;
+  }
+
+  .nav-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .nav-label {
+    font-size: 10px;
+    font-weight: 500;
+    color: #A8B8C8;
+  }
+
+  .nav-item.active .nav-label {
+    color: #7EB8D4;
+    font-weight: 700;
+  }
+
+  .nav-active-dot {
+    width: 4px;
+    height: 4px;
+    background: #7EB8D4;
+    border-radius: 50%;
+    margin: 0 auto;
+  }
+</style>
+</head>
+<body>
+
+<!-- Meta strip -->
+<div class="meta-strip">
+  <div class="style-badge">
+    Style B — 软马卡龙三色
+    <span class="tag">清甜 · 薄荷</span>
+  </div>
+  <div class="swatch-row">
+    <div class="swatch-item">
+      <div class="swatch" style="background:#F5F8FF;border-color:#C8D8E8;"></div>
+      <div class="swatch-label">背景</div>
+    </div>
+    <div class="swatch-item">
+      <div class="swatch" style="background:#7EB8D4;"></div>
+      <div class="swatch-label">天空蓝</div>
+    </div>
+    <div class="swatch-item">
+      <div class="swatch" style="background:#B8E8D0;"></div>
+      <div class="swatch-label">薄荷绿</div>
+    </div>
+    <div class="swatch-item">
+      <div class="swatch" style="background:#F8D8C8;"></div>
+      <div class="swatch-label">软桃粉</div>
+    </div>
+    <div class="swatch-item">
+      <div class="swatch" style="background:#C8DCF8;"></div>
+      <div class="swatch-label">软天蓝</div>
+    </div>
+    <div class="swatch-item">
+      <div class="swatch" style="background:#9090B8;"></div>
+      <div class="swatch-label">薰衣紫</div>
+    </div>
+  </div>
+</div>
+
+<!-- Phone -->
+<div class="phone">
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <span class="status-time">9:41</span>
+    <div class="status-icons">
+      <svg width="16" height="12" viewBox="0 0 16 12"><rect x="0" y="3" width="3" height="9" rx="0.8" opacity="0.3"/><rect x="4.5" y="2" width="3" height="10" rx="0.8" opacity="0.5"/><rect x="9" y="0.5" width="3" height="11.5" rx="0.8" opacity="0.7"/><rect x="13.5" y="0" width="2.5" height="12" rx="0.8"/></svg>
+      <svg width="15" height="12" viewBox="0 0 15 12"><path d="M7.5 2.5 C9.8 2.5 11.8 3.5 13.2 5L14.5 3.7C12.7 1.9 10.2 0.8 7.5 0.8 4.8 0.8 2.3 1.9 0.5 3.7L1.8 5C3.2 3.5 5.2 2.5 7.5 2.5Z" opacity="0.4"/><path d="M7.5 5.5C9 5.5 10.3 6.1 11.3 7.1L12.6 5.8C11.2 4.4 9.4 3.5 7.5 3.5 5.6 3.5 3.8 4.4 2.4 5.8L3.7 7.1C4.7 6.1 6 5.5 7.5 5.5Z" opacity="0.7"/><circle cx="7.5" cy="10" r="1.5"/></svg>
+      <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0" y="1" width="22" height="10" rx="2.5" stroke="#2D3A4A" stroke-width="1.2" fill="none" opacity="0.4"/><rect x="23" y="3.5" width="1.5" height="5" rx="0.8" fill="#2D3A4A" opacity="0.4"/><rect x="1.5" y="2.5" width="16" height="7" rx="1.5" fill="#2D3A4A"/></svg>
+    </div>
+  </div>
+
+  <!-- App bar -->
+  <div class="app-bar">
+    <div class="app-bar-left">
+      <div class="greeting">早上好，宝妈 🌤</div>
+      <div class="app-title">小橙汁开饭啦</div>
+    </div>
+    <div class="avatar">🍊</div>
+  </div>
+
+  <!-- Scroll content -->
+  <div class="scroll-content">
+    <div class="page-content">
+
+      <!-- Hero card -->
+      <div class="hero-card">
+        <div class="hero-wave"></div>
+        <div class="hero-date-chip">
+          <span>📅</span>
+          <span>2026年3月16日 · 星期一</span>
+        </div>
+        <div class="hero-title">小橙汁开饭啦</div>
+        <div class="hero-subtitle">今天吃什么，明天长什么</div>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <div class="hero-stat-value">2</div>
+            <div class="hero-stat-label">今日餐次</div>
+          </div>
+          <div class="hero-stat-divider"></div>
+          <div class="hero-stat">
+            <div class="hero-stat-value">5</div>
+            <div class="hero-stat-label">食材种类</div>
+          </div>
+          <div class="hero-stat-divider"></div>
+          <div class="hero-stat">
+            <div class="hero-stat-value">0</div>
+            <div class="hero-stat-label">已打卡</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section -->
+      <div class="section-header">
+        <div class="section-title">今日餐单</div>
+        <div class="section-more">查看全部 ›</div>
+      </div>
+
+      <!-- Lunch card -->
+      <div class="meal-card">
+        <div class="meal-card-header">
+          <div class="meal-type-row">
+            <div class="meal-icon">🥣</div>
+            <div class="meal-info">
+              <div class="meal-type">午餐</div>
+              <div class="meal-time">12:00 · 建议食量 150g</div>
+            </div>
+          </div>
+          <span class="badge-stock badge-have">有库存</span>
+        </div>
+        <div class="meal-dish-name">南瓜小米粥 + 蒸蛋羹</div>
+        <div class="ingredient-pills">
+          <span class="pill pill-mint">南瓜 80g</span>
+          <span class="pill pill-peach">小米 30g</span>
+          <span class="pill pill-blue">鸡蛋 1个</span>
+          <span class="pill pill-plain">盐少许</span>
+          <span class="pill pill-mint">香油 2滴</span>
+        </div>
+        <div class="meal-footer">
+          <div class="meal-nutrition">
+            <div class="nutrition-item">
+              <div class="nutrition-value">156</div>
+              <div class="nutrition-label">千卡</div>
+            </div>
+            <div class="nutrition-item">
+              <div class="nutrition-value">8g</div>
+              <div class="nutrition-label">蛋白质</div>
+            </div>
+            <div class="nutrition-item">
+              <div class="nutrition-value">22g</div>
+              <div class="nutrition-label">碳水</div>
+            </div>
+          </div>
+          <button class="meal-action-btn">开始制作</button>
+        </div>
+      </div>
+
+      <!-- Dinner card -->
+      <div class="meal-card">
+        <div class="meal-card-header">
+          <div class="meal-type-row">
+            <div class="meal-icon" style="background:#F0EEF8;">🍲</div>
+            <div class="meal-info">
+              <div class="meal-type">晚餐</div>
+              <div class="meal-time">18:00 · 建议食量 180g</div>
+            </div>
+          </div>
+          <span class="badge-stock badge-none">没有</span>
+        </div>
+        <div class="meal-dish-name">胡萝卜肉末烂面条</div>
+        <div class="ingredient-pills">
+          <span class="pill pill-peach">胡萝卜 50g</span>
+          <span class="pill pill-plain">猪肉末 40g</span>
+          <span class="pill pill-blue">细面条 60g</span>
+          <span class="pill pill-plain">生抽少许</span>
+        </div>
+        <div class="meal-footer">
+          <div class="meal-nutrition">
+            <div class="nutrition-item">
+              <div class="nutrition-value">198</div>
+              <div class="nutrition-label">千卡</div>
+            </div>
+            <div class="nutrition-item">
+              <div class="nutrition-value">12g</div>
+              <div class="nutrition-label">蛋白质</div>
+            </div>
+            <div class="nutrition-item">
+              <div class="nutrition-value">28g</div>
+              <div class="nutrition-label">碳水</div>
+            </div>
+          </div>
+          <button class="meal-action-btn">去采购</button>
+        </div>
+      </div>
+
+      <!-- Quick actions -->
+      <div class="section-header" style="margin-top:4px;">
+        <div class="section-title">快捷操作</div>
+      </div>
+      <div class="quick-row">
+        <div class="quick-card">
+          <div class="quick-card-icon">📦</div>
+          <div class="quick-card-title">库存检查</div>
+          <div class="quick-card-sub">3种食材不足</div>
+        </div>
+        <div class="quick-card">
+          <div class="quick-card-icon">📖</div>
+          <div class="quick-card-title">辅食菜谱</div>
+          <div class="quick-card-sub">128个食谱</div>
+        </div>
+        <div class="quick-card">
+          <div class="quick-card-icon">🛒</div>
+          <div class="quick-card-title">购物清单</div>
+          <div class="quick-card-sub">待采购 5件</div>
+        </div>
+      </div>
+
+    </div><!-- /page-content -->
+
+    <div class="cta-wrap">
+      <button class="cta-btn">
+        ✅ 打卡完成
+        <span class="cta-btn-sub">记录今日饮食</span>
+      </button>
+    </div>
+
+  </div><!-- /scroll-content -->
+
+  <!-- Bottom nav -->
+  <div class="bottom-nav">
+    <div class="nav-item active">
+      <div class="nav-icon">🏠</div>
+      <div class="nav-label">今日</div>
+      <div class="nav-active-dot"></div>
+    </div>
+    <div class="nav-item">
+      <div class="nav-icon">📝</div>
+      <div class="nav-label">记录</div>
+    </div>
+    <div class="nav-item">
+      <div class="nav-icon">📦</div>
+      <div class="nav-label">库存</div>
+    </div>
+    <div class="nav-item">
+      <div class="nav-icon">📖</div>
+      <div class="nav-label">菜谱</div>
+    </div>
+    <div class="nav-item">
+      <div class="nav-icon">🛒</div>
+      <div class="nav-label">采购</div>
+    </div>
+  </div>
+
+</div><!-- /phone -->
+
+</body>
+</html>
