@@ -1021,18 +1021,59 @@ button:disabled {
    ========================================== */
 .plan-recipe-card {
   position: relative;
-  padding: 12px 14px 14px;
+  padding: 12px 14px 36px;
   border-radius: var(--r);
   background: var(--surface-2);
   border: 1.5px solid var(--border-mid);
   display: grid;
   gap: 4px;
+  transition: background 400ms ease, border-color 400ms ease;
+}
+
+.plan-recipe-card.is-completed {
+  background: #e8f8ee;
+  border-color: #86c99a;
+  animation: complete-flash 400ms ease;
+}
+
+@keyframes complete-flash {
+  0%   { background: var(--surface-2); }
+  40%  { background: #c6f0d4; }
+  100% { background: #e8f8ee; }
+}
+
+.plan-recipe-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.plan-recipe-complete {
+  background: none;
+  border: 2px solid #ccc;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  font-size: 0.75rem;
+  color: #ccc;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 200ms, border-color 200ms, color 200ms;
+  flex-shrink: 0;
+}
+
+.plan-recipe-complete.done {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 .plan-recipe-remove {
-  position: absolute;
-  top: 8px;
-  right: 10px;
   background: none;
   border: none;
   font-size: 1rem;
@@ -1040,6 +1081,11 @@ button:disabled {
   cursor: pointer;
   line-height: 1;
   padding: 2px 4px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .plan-recipe-remove:hover {
@@ -1073,6 +1119,13 @@ button:disabled {
   font-size: 0.78rem;
   color: var(--accent);
   font-weight: 600;
+}
+
+.buy-item-hint {
+  font-size: 0.78rem;
+  color: var(--accent);
+  font-weight: 600;
+  flex-shrink: 0;
 }
 
 /* ==========================================

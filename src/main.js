@@ -33,6 +33,7 @@ const uiState = {
   creatingRecipe: null,
   addingIngredient: null,
   editingIngredientId: null,
+  buyingIngredientId: null,
   schedulingRecipeId: null,
   schedulingSlot: null,
   suggestionSeed: Date.now(),
@@ -237,6 +238,9 @@ function attachEvents() {
         commit(replaceMealRecipe(s1, date, slot, newRecipe.id), "菜谱已保存并加入计划");
         break;
       }
+      case "complete-meal":
+        commit(toggleMealCompleted(state, actionTarget.dataset.date, actionTarget.dataset.slot), "已标记完成");
+        break;
       case "delete-recipe":
         commit(deleteRecipe(state, actionTarget.dataset.recipeId), "菜谱已删除");
         break;
@@ -298,6 +302,22 @@ function attachEvents() {
         break;
       case "use-ingredient":
         commit(useIngredient(state, actionTarget.dataset.ingredientId), "库存已更新");
+        break;
+      case "open-buy-quantity":
+        uiState.buyingIngredientId = actionTarget.dataset.ingredientId;
+        render();
+        break;
+      case "close-buy-quantity":
+        uiState.buyingIngredientId = null;
+        render();
+        break;
+      case "confirm-buy-quantity":
+        commit(
+          resetIngredient(state, actionTarget.dataset.ingredientId, parseInt(actionTarget.dataset.quantity, 10)),
+          "已加入库存"
+        );
+        uiState.buyingIngredientId = null;
+        render();
         break;
       case "open-edit-ingredient":
         uiState.editingIngredientId = actionTarget.dataset.ingredientId;
@@ -953,7 +973,7 @@ function renderHistoryDay(day) {
       </div>
       <div class="history-meals card-grid">
         ${day.meals
-          .filter((meal) => meal.completed)
+          .filter((meal) => meal.completed && meal.recipe)
           .map(
             (meal) => `
               <article class="history-item compact-tile">
@@ -961,8 +981,14 @@ function renderHistoryDay(day) {
                   <span class="badge hot">${meal.slotLabel}</span>
                   <span class="status-pill completed">已打卡</span>
                 </div>
-                <p class="history-title">${meal.recipe.name}</p>
-                <p class="history-note">${meal.note || meal.recipe.highlight}</p>
+                <p class="history-title">${escapeHtml(meal.recipe.name)}</p>
+                <div class="pill-row" style="margin-top:4px;">
+                  ${(meal.recipe.ingredientIds || [])
+                    .map((id) => state.ingredients.find((i) => i.id === id))
+                    .filter(Boolean)
+                    .map((ing) => renderIngredientPill(ing))
+                    .join("")}
+                </div>
               </article>
             `,
           )
@@ -980,9 +1006,8 @@ function renderHistoryIngredient(ingredient) {
           <p class="ingredient-name">${ingredient.name}</p>
           <p class="history-note">${ingredient.category} · ${ingredient.acceptedLabel}</p>
         </div>
-        <span class="status-pill stock-${ingredient.stockStatus}">${stockLabel(ingredient.stockStatus)}</span>
       </div>
-      <p class="ingredient-note">最近一次出现在 ${formatShortDate(ingredient.lastSeenOn)} 的「${ingredient.seenInRecipe}」里。</p>
+      <p class="ingredient-note">最近出现在 ${formatShortDate(ingredient.lastSeenOn)} 的「${escapeHtml(ingredient.seenInRecipe)}」里。</p>
     </article>
   `;
 }
@@ -1262,7 +1287,11 @@ function renderSlotRecipePickerDrawer({ date, slot }) {
 }
 
 function renderBuyPage() {
-  const missingItems = state.ingredients.filter((i) => i.stockStatus === "missing");
+  const missingItems = state.ingredients.filter((i) => {
+    const qty = i.quantity ?? 1;
+    const used = i.used ?? 0;
+    return (qty - used) <= 0;
+  });
 
   return `
     <section class="dashboard-board">
@@ -1271,35 +1300,67 @@ function renderBuyPage() {
           <div class="shopping-header">
             <div>
               <p class="section-overline">Buy List</p>
-              <h3 class="section-title">待买清单</h3>
+              <h3 class="section-title">待采购</h3>
             </div>
             <span class="badge hot">${missingItems.length} 项</span>
           </div>
           ${
             missingItems.length
               ? `<div class="inventory-list">${missingItems.map((ing) => `
-                  <div class="shopping-row">
-                    <div class="shopping-top">
-                      <div class="shopping-info">
-                        <p class="shopping-title">${escapeHtml(ing.name)}</p>
-                        <p class="helper-copy">${ing.category} · ${ing.acceptedLabel}</p>
-                      </div>
-                      <button
-                        class="primary-button"
-                        data-action="set-stock"
-                        data-ingredient-id="${ing.id}"
-                        data-stock="in-stock"
-                        type="button"
-                        style="flex-shrink:0;"
-                      >买到了</button>
+                  <div
+                    class="inventory-row buy-item"
+                    data-action="open-buy-quantity"
+                    data-ingredient-id="${ing.id}"
+                    role="button"
+                    tabindex="0"
+                  >
+                    <div class="inventory-row-left">
+                      <span class="inventory-row-name">${escapeHtml(ing.name)}</span>
+                      <span class="inventory-row-meta">${ing.category} · ${ing.acceptedLabel}</span>
                     </div>
+                    <span class="buy-item-hint">选数量 →</span>
                   </div>
                 `).join("")}</div>`
-              : `<div class="empty-state">库存齐全，没有待买食材。</div>`
+              : `<div class="empty-state">库存充足，没有待采购食材。</div>`
           }
         </section>
       </section>
     </section>
+    ${uiState.buyingIngredientId ? renderBuyQuantityDrawer(uiState.buyingIngredientId) : ""}
+  `;
+}
+
+function renderBuyQuantityDrawer(ingredientId) {
+  const ing = state.ingredients.find((i) => i.id === ingredientId);
+  if (!ing) return "";
+  const quantities = [1, 2, 3, 4, 5];
+  return `
+    <div class="drawer-overlay" data-action="close-buy-quantity" role="button" aria-label="关闭"></div>
+    <div class="drawer is-opening">
+      <div class="drawer-header">
+        <div>
+          <p class="section-overline">Buy</p>
+          <h3 class="section-title">${escapeHtml(ing.name)}</h3>
+        </div>
+        <button class="ghost-button" data-action="close-buy-quantity" type="button">取消</button>
+      </div>
+      <div class="drawer-body">
+        <div class="drawer-group">
+          <p class="drawer-group-label">买了几个？</p>
+          <div class="filter-row">
+            ${quantities.map((q) => `
+              <button
+                class="filter-button drawer-filter-button"
+                data-action="confirm-buy-quantity"
+                data-ingredient-id="${ingredientId}"
+                data-quantity="${q}"
+                type="button"
+              >${q}</button>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -1496,22 +1557,33 @@ function renderMealSlotCard(date, slot, slotLabel, meal) {
   const ingredients = meal.ingredients;
   const recipe = meal.recipe;
   const isLunch = slot === "lunch";
+  const completed = meal.completed;
 
   return `
     <article
-      class="plan-recipe-card"
+      class="plan-recipe-card ${completed ? "is-completed" : ""}"
       data-longpress-plan="${recipe.id}"
       data-longpress-date="${date}"
       data-longpress-slot="${slot}"
     >
-      <button
-        class="plan-recipe-remove"
-        data-action="clear-meal-slot"
-        data-date="${date}"
-        data-slot="${slot}"
-        type="button"
-        aria-label="移除"
-      >×</button>
+      <div class="plan-recipe-actions">
+        <button
+          class="plan-recipe-complete ${completed ? "done" : ""}"
+          data-action="complete-meal"
+          data-date="${date}"
+          data-slot="${slot}"
+          type="button"
+          aria-label="标记完成"
+        >✓</button>
+        <button
+          class="plan-recipe-remove"
+          data-action="clear-meal-slot"
+          data-date="${date}"
+          data-slot="${slot}"
+          type="button"
+          aria-label="移除"
+        >×</button>
+      </div>
       <p class="recipe-name">${escapeHtml(recipe.name)}</p>
       <div class="pill-row" style="margin-top:6px;">
         ${ingredients.map((ing) => renderIngredientPill(ing)).join("")}
