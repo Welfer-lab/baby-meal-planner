@@ -11,6 +11,8 @@ import {
   toggleMealCompleted,
   toggleShoppingChecked,
   updateIngredientStock,
+  useIngredient,
+  resetIngredient,
   updateMealNote,
   updateProfile,
   replaceMealRecipe,
@@ -30,6 +32,7 @@ const uiState = {
   editingRecipeId: null,
   creatingRecipe: null,
   addingIngredient: null,
+  editingIngredientId: null,
   schedulingRecipeId: null,
   suggestionSeed: Date.now(),
   notice: "",
@@ -133,8 +136,8 @@ function attachEvents() {
           category: uiState.addingIngredient.category,
           acceptedLabel: uiState.addingIngredient.acceptedLabel,
           quantity: uiState.addingIngredient.quantity,
+          used: 0,
           note: "",
-          stockStatus: "in-stock",
         };
         uiState.addingIngredient = null;
         commit(addIngredient(state, newIngredient), `${name} 已加入库存`);
@@ -272,6 +275,24 @@ function attachEvents() {
           "库存状态已更新",
         );
         break;
+      case "use-ingredient":
+        commit(useIngredient(state, actionTarget.dataset.ingredientId), "库存已更新");
+        break;
+      case "open-edit-ingredient":
+        uiState.editingIngredientId = actionTarget.dataset.ingredientId;
+        render();
+        break;
+      case "close-edit-ingredient":
+        uiState.editingIngredientId = null;
+        render();
+        break;
+      case "reset-ingredient": {
+        const qty = parseInt(actionTarget.dataset.quantity, 10);
+        commit(resetIngredient(state, uiState.editingIngredientId, qty), "已重置");
+        uiState.editingIngredientId = null;
+        render();
+        break;
+      }
       case "set-filter":
         uiState.recipeFilter = actionTarget.dataset.filter;
         render();
@@ -324,6 +345,36 @@ function attachEvents() {
       );
     }
   });
+
+  // Long press detection for ingredient cards
+  let longPressTimer = null;
+  let longPressFired = false;
+  root.addEventListener("pointerdown", (event) => {
+    const card = event.target.closest("[data-longpress-ingredient]");
+    if (!card) return;
+    longPressFired = false;
+    longPressTimer = setTimeout(() => {
+      longPressTimer = null;
+      longPressFired = true;
+      uiState.editingIngredientId = card.dataset.longpressIngredient;
+      render();
+    }, 500);
+  });
+  root.addEventListener("pointerup", () => {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  });
+  root.addEventListener("pointermove", () => {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  });
+  root.addEventListener("pointercancel", () => {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  });
+  root.addEventListener("click", (event) => {
+    if (longPressFired) {
+      longPressFired = false;
+      event.stopImmediatePropagation();
+    }
+  }, true);
 
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
@@ -662,6 +713,7 @@ function render() {
     ${uiState.editingRecipeId ? renderIngredientDrawer(uiState.editingRecipeId) : ""}
     ${uiState.creatingRecipe ? renderRecipeCreatorDrawer() : ""}
     ${uiState.addingIngredient ? renderAddIngredientDrawer() : ""}
+    ${uiState.editingIngredientId ? renderEditIngredientDrawer(uiState.editingIngredientId) : ""}
     ${uiState.schedulingRecipeId ? renderScheduleDrawer(uiState.schedulingRecipeId) : ""}
   `;
 }
@@ -928,19 +980,23 @@ function renderCategoryPicker() {
             ? state.ingredients
                 .filter((ing) => ing.category === open)
                 .map((ing) => {
-                  const hasStock = ing.stockStatus === "in-stock";
+                  const qty = ing.quantity ?? 1;
+                  const used = ing.used ?? 0;
+                  const remaining = qty - used;
+                  const hasStock = remaining > 0;
+                  const statusText = hasStock ? `${remaining}/${qty}` : "没有";
                   return `
                     <div
                       class="ingredient-toggle-card ${hasStock ? "is-stocked" : ""}"
-                      data-action="set-stock"
+                      data-action="use-ingredient"
                       data-ingredient-id="${ing.id}"
-                      data-stock="${hasStock ? "missing" : "in-stock"}"
+                      data-longpress-ingredient="${ing.id}"
                       role="button"
                       tabindex="0"
                     >
                       <span class="ingredient-toggle-name">${escapeHtml(ing.name)}</span>
                       <span class="ingredient-toggle-label">${ing.acceptedLabel}</span>
-                      <span class="ingredient-toggle-status">${hasStock ? "有" : "没有"}</span>
+                      <span class="ingredient-toggle-status${hasStock ? "" : " is-empty"}">${statusText}</span>
                     </div>
                   `;
                 }).join("")
@@ -1027,6 +1083,49 @@ function renderAddIngredientDrawer() {
           type="button"
           style="width:100%;"
         >加入库存</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderEditIngredientDrawer(ingredientId) {
+  const ing = state.ingredients.find((i) => i.id === ingredientId);
+  if (!ing) return "";
+  const qty = ing.quantity ?? 1;
+  const quantities = [1, 2, 3, 4, 5];
+  return `
+    <div class="drawer-overlay" data-action="close-edit-ingredient" role="button" aria-label="关闭"></div>
+    <div class="drawer">
+      <div class="drawer-header">
+        <div>
+          <p class="section-overline">Edit Stock</p>
+          <h3 class="section-title">${escapeHtml(ing.name)}</h3>
+        </div>
+        <button class="ghost-button" data-action="close-edit-ingredient" type="button">取消</button>
+      </div>
+      <div class="drawer-body">
+        <div class="drawer-group">
+          <p class="drawer-group-label">修改数量</p>
+          <div class="filter-row">
+            ${quantities.map((q) => `
+              <button
+                class="filter-button drawer-filter-button ${qty === q ? "active" : ""}"
+                data-action="reset-ingredient"
+                data-quantity="${q}"
+                type="button"
+              >${q}</button>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+      <div style="padding:12px 16px 16px;">
+        <button
+          class="primary-button"
+          data-action="reset-ingredient"
+          data-quantity="${qty}"
+          type="button"
+          style="width:100%;"
+        >重置（恢复 ${qty}/${qty}）</button>
       </div>
     </div>
   `;
@@ -1145,13 +1244,17 @@ function renderInventoryPage() {
               <p class="drawer-group-label"><span class="badge ${categoryClass(cat)}">${cat}</span></p>
               <div class="ingredient-toggle-grid">
                 ${ings.map((ing) => {
-                  const hasStock = ing.stockStatus === "in-stock";
+                  const qty = ing.quantity ?? 1;
+                  const used = ing.used ?? 0;
+                  const remaining = qty - used;
+                  const hasStock = remaining > 0;
+                  const statusText = hasStock ? `${remaining}/${qty}` : "没有";
                   return `
                     <div
                       class="ingredient-toggle-card with-remove ${hasStock ? "is-stocked " + categoryClass(cat) : ""}"
-                      data-action="set-stock"
+                      data-action="use-ingredient"
                       data-ingredient-id="${ing.id}"
-                      data-stock="${hasStock ? "missing" : "in-stock"}"
+                      data-longpress-ingredient="${ing.id}"
                       role="button"
                       tabindex="0"
                     >
@@ -1164,7 +1267,7 @@ function renderInventoryPage() {
                       >x</button>
                       <span class="ingredient-toggle-name">${escapeHtml(ing.name)}</span>
                       <span class="ingredient-toggle-label">${ing.acceptedLabel}</span>
-                      <span class="ingredient-toggle-status">${hasStock ? "有" : "没有"}</span>
+                      <span class="ingredient-toggle-status${hasStock ? "" : " is-empty"}">${statusText}</span>
                     </div>
                   `;
                 }).join("")}

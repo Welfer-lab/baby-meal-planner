@@ -405,8 +405,8 @@ textarea {
 }
 
 .badge.cat-staple {
-  background: var(--peach-bg);
-  color: var(--peach-dark);
+  background: #DDE6F0;
+  color: #4A6FA5;
 }
 
 .pill {
@@ -425,8 +425,8 @@ textarea {
 }
 
 .pill.cat-staple {
-  background: var(--peach-bg);
-  color: var(--peach-dark);
+  background: #DDE6F0;
+  color: #4A6FA5;
 }
 
 .pill.stock-missing,
@@ -1065,7 +1065,7 @@ button:disabled {
 }
 
 .ingredient-toggle-card.is-stocked.cat-staple {
-  background: var(--peach-bg);
+  background: #DDE6F0;
 }
 
 .ingredient-toggle-name {
@@ -1089,15 +1089,24 @@ button:disabled {
 }
 
 .ingredient-toggle-card.is-stocked .ingredient-toggle-status {
-  color: var(--stocked-text);
+  color: #2563EB;
 }
 
 .ingredient-toggle-card.is-stocked.cat-protein .ingredient-toggle-status {
   color: var(--accent-dark);
 }
 
+.ingredient-toggle-card.is-stocked.cat-veg .ingredient-toggle-status {
+  color: #166534;
+}
+
 .ingredient-toggle-card.is-stocked.cat-staple .ingredient-toggle-status {
-  color: var(--peach-dark);
+  color: #2563EB;
+}
+
+.ingredient-toggle-status.is-empty {
+  color: var(--text-3);
+  opacity: 0.45;
 }
 
 .ingredient-remove-button {
