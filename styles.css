@@ -116,6 +116,7 @@
 html {
   min-height: 100%;
   background: var(--bg);
+  font-size: 18px;
 }
 
 /* journeygen 风格点阵背景 — 更大更明显 */
@@ -389,8 +390,8 @@ textarea {
 }
 
 .badge.sage {
-  background: var(--stocked-bg);
-  color: var(--stocked-text);
+  background: var(--peach-bg);
+  color: var(--peach-dark);
 }
 
 /* 食材分类 — 鲜亮三色 */
@@ -1013,6 +1014,65 @@ button:disabled {
   border: 1.5px solid var(--border-mid);
   display: grid;
   gap: 7px;
+}
+
+/* ==========================================
+   计划菜谱卡片
+   ========================================== */
+.plan-recipe-card {
+  position: relative;
+  padding: 12px 14px 14px;
+  border-radius: var(--r);
+  background: var(--surface-2);
+  border: 1.5px solid var(--border-mid);
+  display: grid;
+  gap: 4px;
+}
+
+.plan-recipe-remove {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  color: var(--text-3);
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.plan-recipe-remove:hover {
+  color: var(--accent);
+}
+
+.plan-recipe-slot-badge {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+}
+
+.meal-slot-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-radius: var(--r);
+  border: 2px dashed var(--border-mid);
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-3);
+}
+
+.meal-slot-empty-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.meal-slot-empty-hint {
+  font-size: 0.78rem;
+  color: var(--accent);
+  font-weight: 600;
 }
 
 /* ==========================================

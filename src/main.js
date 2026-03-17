@@ -25,7 +25,7 @@ const SHARED_STATE_TABLE = "shared_state";
 const root = document.querySelector("#app");
 
 const uiState = {
-  activeTab: new URLSearchParams(location.search).get("tab") || "today",
+  activeTab: new URLSearchParams(location.search).get("tab") || "library",
   swapKey: null,
   recipeFilter: "all",
   openCategory: null,
@@ -34,6 +34,7 @@ const uiState = {
   addingIngredient: null,
   editingIngredientId: null,
   schedulingRecipeId: null,
+  schedulingSlot: null,
   suggestionSeed: Date.now(),
   notice: "",
   installPrompt: null,
@@ -156,8 +157,32 @@ function attachEvents() {
         break;
       case "close-schedule-recipe":
         uiState.schedulingRecipeId = null;
+        uiState.schedulingSlot = null;
         render();
         break;
+      case "clear-meal-slot":
+        commit(
+          replaceMealRecipe(state, actionTarget.dataset.date, actionTarget.dataset.slot, null),
+          "已移除"
+        );
+        break;
+      case "open-schedule-for-slot":
+        uiState.schedulingSlot = { date: actionTarget.dataset.date, slot: actionTarget.dataset.slot };
+        render();
+        break;
+      case "close-slot-picker":
+        uiState.schedulingSlot = null;
+        render();
+        break;
+      case "select-recipe-for-slot": {
+        const { date, slot } = uiState.schedulingSlot;
+        uiState.schedulingSlot = null;
+        commit(
+          replaceMealRecipe(state, date, slot, actionTarget.dataset.recipeId),
+          "已放入计划"
+        );
+        break;
+      }
       case "schedule-recipe":
         uiState.schedulingRecipeId = null;
         commit(
@@ -166,31 +191,18 @@ function attachEvents() {
         );
         break;
       case "open-recipe-creator":
-        uiState.creatingRecipe = { slot: "lunch", ingredientIds: [] };
+        uiState.creatingRecipe = { ingredientIds: [], pickingTime: false };
         render();
         break;
       case "add-suggested-recipe": {
         const ingredientIds = actionTarget.dataset.ingredientIds.split(",").filter(Boolean);
-        const slot = actionTarget.dataset.slot;
-        const newRecipe = {
-          id: `custom-${Date.now()}`,
-          name: buildRecipeName(ingredientIds),
-          stageLabel: "9-12个月",
-          slots: [slot],
-          ingredientIds,
-        };
-        commit(addRecipe(state, newRecipe), "菜谱已加入");
+        uiState.creatingRecipe = { ingredientIds, pickingTime: true };
+        render();
         break;
       }
       case "close-recipe-creator":
         uiState.creatingRecipe = null;
         render();
-        break;
-      case "toggle-creator-slot":
-        if (uiState.creatingRecipe) {
-          uiState.creatingRecipe.slot = actionTarget.dataset.slot;
-          render();
-        }
         break;
       case "toggle-creator-ingredient": {
         if (!uiState.creatingRecipe) break;
@@ -204,7 +216,15 @@ function attachEvents() {
       }
       case "save-recipe": {
         if (!uiState.creatingRecipe) break;
-        const { slot, ingredientIds } = uiState.creatingRecipe;
+        uiState.creatingRecipe.pickingTime = true;
+        render();
+        break;
+      }
+      case "confirm-recipe-time": {
+        if (!uiState.creatingRecipe) break;
+        const { ingredientIds } = uiState.creatingRecipe;
+        const date = actionTarget.dataset.date;
+        const slot = actionTarget.dataset.slot;
         const newRecipe = {
           id: `custom-${Date.now()}`,
           name: buildRecipeName(ingredientIds),
@@ -213,7 +233,8 @@ function attachEvents() {
           ingredientIds,
         };
         uiState.creatingRecipe = null;
-        commit(addRecipe(state, newRecipe), "菜谱已保存");
+        const s1 = addRecipe(state, newRecipe);
+        commit(replaceMealRecipe(s1, date, slot, newRecipe.id), "菜谱已保存并加入计划");
         break;
       }
       case "delete-recipe":
@@ -350,13 +371,19 @@ function attachEvents() {
   let longPressTimer = null;
   let longPressFired = false;
   root.addEventListener("pointerdown", (event) => {
-    const card = event.target.closest("[data-longpress-ingredient]");
+    const ingCard = event.target.closest("[data-longpress-ingredient]");
+    const planCard = event.target.closest("[data-longpress-plan]");
+    const card = ingCard || planCard;
     if (!card) return;
     longPressFired = false;
     longPressTimer = setTimeout(() => {
       longPressTimer = null;
       longPressFired = true;
-      uiState.editingIngredientId = card.dataset.longpressIngredient;
+      if (ingCard) {
+        uiState.editingIngredientId = card.dataset.longpressIngredient;
+      } else {
+        uiState.schedulingSlot = { date: card.dataset.longpressDate, slot: card.dataset.longpressSlot };
+      }
       render();
     }, 500);
   });
@@ -718,6 +745,7 @@ function render() {
     ${uiState.addingIngredient ? renderAddIngredientDrawer() : ""}
     ${uiState.editingIngredientId ? renderEditIngredientDrawer(uiState.editingIngredientId) : ""}
     ${uiState.schedulingRecipeId ? renderScheduleDrawer(uiState.schedulingRecipeId) : ""}
+    ${uiState.schedulingSlot ? renderSlotRecipePickerDrawer(uiState.schedulingSlot) : ""}
   `;
 
   const drawer = root.querySelector(".drawer");
@@ -788,9 +816,8 @@ function renderCurrentPage(snapshot, today) {
       return renderLibraryPage(today);
     case "settings":
       return renderSettingsPage();
-    case "today":
     default:
-      return renderTodayPage(snapshot, today);
+      return renderLibraryPage();
   }
 }
 
@@ -1193,6 +1220,47 @@ function renderScheduleDrawer(recipeId) {
   `;
 }
 
+function renderSlotRecipePickerDrawer({ date, slot }) {
+  const slotLabel = slot === "lunch" ? "午餐" : "晚餐";
+  const recipes = state.recipes.filter((r) => r.slots.includes(slot));
+  return `
+    <div class="drawer-overlay" data-action="close-slot-picker" role="button" aria-label="关闭"></div>
+    <div class="drawer is-opening">
+      <div class="drawer-header">
+        <div>
+          <p class="section-overline">选择菜谱</p>
+          <h3 class="section-title">${formatShortDate(date)} ${slotLabel}</h3>
+        </div>
+        <button class="ghost-button" data-action="close-slot-picker" type="button">取消</button>
+      </div>
+      <div class="drawer-body">
+        ${recipes.length ? `
+          <div class="inventory-list">
+            ${recipes.map((r) => {
+              const ings = r.ingredientIds
+                .map((id) => state.ingredients.find((i) => i.id === id))
+                .filter(Boolean)
+                .map((i) => i.name).join("·");
+              return `
+                <div
+                  class="inventory-row"
+                  data-action="select-recipe-for-slot"
+                  data-recipe-id="${r.id}"
+                  role="button"
+                  tabindex="0"
+                >
+                  <span class="inventory-row-name">${escapeHtml(r.name)}</span>
+                  <span class="inventory-row-meta">${escapeHtml(ings)}</span>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        ` : `<p class="empty-state">还没有${slotLabel}菜谱，先新建一个。</p>`}
+      </div>
+    </div>
+  `;
+}
+
 function renderBuyPage() {
   const missingItems = state.ingredients.filter((i) => i.stockStatus === "missing");
 
@@ -1371,54 +1439,85 @@ function renderInventoryRow(ingredient) {
 }
 
 function renderLibraryPage() {
-  const recipes = state.recipes.filter((recipe) => {
-    if (uiState.recipeFilter === "all") return true;
-    return recipe.slots.includes(uiState.recipeFilter);
-  });
+  const today = getTodayKey();
+  const tomorrow = (() => {
+    const [y, m, d] = today.split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + 1);
+    return dt.toISOString().slice(0, 10);
+  })();
 
   return `
     <section class="dashboard-board">
       <section class="panel-card compact-card">
-        <div class="header-row">
-          <div class="filter-row">
-            ${[
-              ["all", "全部"],
-              ["lunch", "午餐"],
-              ["dinner", "晚餐"],
-            ]
-              .map(
-                ([filter, label]) => `
-                  <button
-                    class="filter-button ${uiState.recipeFilter === filter ? "active" : ""}"
-                    data-action="set-filter"
-                    data-filter="${filter}"
-                    type="button"
-                  >${label}</button>
-                `,
-              )
-              .join("")}
+        <div class="header-row" style="align-items:center;">
+          <div>
+            <p class="section-overline">Today &amp; Tomorrow</p>
+            <h3 class="section-title">饮食计划</h3>
           </div>
           <button class="primary-button" data-action="open-recipe-creator" type="button">+ 新建菜谱</button>
         </div>
       </section>
       <section class="content-board library-board">
         ${renderSuggestedRecipes()}
-        <section class="panel-card compact-card wide-card">
-          <div class="header-row">
-            <div>
-              <p class="section-overline">Recipe Cards</p>
-              <h3 class="section-title">我的菜谱</h3>
-            </div>
-            <span class="badge">${recipes.length} 道</span>
-          </div>
-          ${
-            recipes.length
-              ? `<div class="recipe-list">${recipes.map((recipe) => renderRecipeCard(recipe)).join("")}</div>`
-              : `<div class="empty-state">还没有菜谱，先在采购页把买到的食材加入库存，再新建菜谱。</div>`
-          }
-        </section>
+        ${renderDayPlanCard(today, "今天")}
+        ${renderDayPlanCard(tomorrow, "明天")}
       </section>
     </section>
+  `;
+}
+
+function renderDayPlanCard(date, dayLabel) {
+  const lunch = getMealViewModel(state, date, "lunch");
+  const dinner = getMealViewModel(state, date, "dinner");
+  return `
+    <section class="panel-card compact-card wide-card">
+      <div class="header-row" style="margin-bottom:12px;">
+        <h3 class="section-title">${dayLabel}</h3>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${renderMealSlotCard(date, "lunch", "午餐", lunch)}
+        ${renderMealSlotCard(date, "dinner", "晚餐", dinner)}
+      </div>
+    </section>
+  `;
+}
+
+function renderMealSlotCard(date, slot, slotLabel, meal) {
+  if (!meal) {
+    return `
+      <div class="meal-slot-empty">
+        <span class="meal-slot-empty-label">${slotLabel}</span>
+        <span class="meal-slot-empty-hint">暂未安排</span>
+      </div>
+    `;
+  }
+
+  const ingredients = meal.ingredients;
+  const recipe = meal.recipe;
+  const isLunch = slot === "lunch";
+
+  return `
+    <article
+      class="plan-recipe-card"
+      data-longpress-plan="${recipe.id}"
+      data-longpress-date="${date}"
+      data-longpress-slot="${slot}"
+    >
+      <button
+        class="plan-recipe-remove"
+        data-action="clear-meal-slot"
+        data-date="${date}"
+        data-slot="${slot}"
+        type="button"
+        aria-label="移除"
+      >×</button>
+      <p class="recipe-name">${escapeHtml(recipe.name)}</p>
+      <div class="pill-row" style="margin-top:6px;">
+        ${ingredients.map((ing) => renderIngredientPill(ing)).join("")}
+      </div>
+      <span class="plan-recipe-slot-badge badge ${isLunch ? "hot" : "sage"}">${slotLabel}</span>
+    </article>
   `;
 }
 
@@ -1540,10 +1639,60 @@ function buildRecipeName(ingredientIds) {
 }
 
 function renderRecipeCreatorDrawer() {
-  const { slot, ingredientIds } = uiState.creatingRecipe;
-  const categories = ["蛋白质", "蔬菜", "主食"];
-  const stockedIngredients = state.ingredients.filter((i) => i.stockStatus !== "missing");
+  const { ingredientIds, pickingTime } = uiState.creatingRecipe;
   const previewName = buildRecipeName(ingredientIds);
+
+  if (pickingTime) {
+    const today = getTodayKey();
+    const tomorrow = (() => {
+      const [y, m, d] = today.split("-").map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      dt.setUTCDate(dt.getUTCDate() + 1);
+      return dt.toISOString().slice(0, 10);
+    })();
+    const timeSlots = [
+      { date: today,    slot: "lunch",  label: "今天午餐" },
+      { date: today,    slot: "dinner", label: "今天晚餐" },
+      { date: tomorrow, slot: "lunch",  label: "明天午餐" },
+      { date: tomorrow, slot: "dinner", label: "明天晚餐" },
+    ];
+    return `
+      <div class="drawer-overlay" data-action="close-recipe-creator" role="button" aria-label="关闭"></div>
+      <div class="drawer is-opening">
+        <div class="drawer-header">
+          <div>
+            <p class="section-overline">选择时间</p>
+            <h3 class="section-title">${escapeHtml(previewName)}</h3>
+          </div>
+          <button class="ghost-button" data-action="close-recipe-creator" type="button">取消</button>
+        </div>
+        <div class="drawer-body">
+          <div class="inventory-list">
+            ${timeSlots.map(({ date, slot, label }) => `
+              <div
+                class="inventory-row"
+                data-action="confirm-recipe-time"
+                data-date="${date}"
+                data-slot="${slot}"
+                role="button"
+                tabindex="0"
+              >
+                <span class="inventory-row-name">${label}</span>
+                <span class="inventory-row-meta">${formatShortDate(date)}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const categories = ["蛋白质", "蔬菜", "主食"];
+  const stockedIngredients = state.ingredients.filter((i) => {
+    const qty = i.quantity ?? 1;
+    const used = i.used ?? 0;
+    return i.stockStatus ? i.stockStatus === "in-stock" : (qty - used) > 0;
+  });
 
   return `
     <div class="drawer-overlay" data-action="close-recipe-creator" role="button" aria-label="关闭"></div>
@@ -1556,19 +1705,6 @@ function renderRecipeCreatorDrawer() {
         <button class="ghost-button" data-action="close-recipe-creator" type="button">取消</button>
       </div>
       <div class="drawer-body">
-        <div class="drawer-group">
-          <p class="drawer-group-label">槽位</p>
-          <div class="filter-row">
-            ${[["lunch", "午餐"], ["dinner", "晚餐"]].map(([s, label]) => `
-              <button
-                class="filter-button ${slot === s ? "active" : ""}"
-                data-action="toggle-creator-slot"
-                data-slot="${s}"
-                type="button"
-              >${label}</button>
-            `).join("")}
-          </div>
-        </div>
         ${categories.map((cat) => {
           const catIngredients = stockedIngredients.filter((i) => i.category === cat);
           if (!catIngredients.length) return "";
@@ -1600,7 +1736,7 @@ function renderRecipeCreatorDrawer() {
             </div>
           `;
         }).join("")}
-        ${!stockedIngredients.length ? `<p class="empty-state">先在采购页把买到的食材标为有货。</p>` : ""}
+        ${!stockedIngredients.length ? `<p class="empty-state">先在库存页添加食材。</p>` : ""}
       </div>
       <div style="padding: 12px 16px 16px;">
         <button
@@ -1813,12 +1949,10 @@ function renderSummaryCard(label, value, tone = "plain") {
 
 function renderBottomNav() {
   const items = [
-    ["today", "今日"],
+    ["library", "计划"],
     ["history", "记录"],
     ["inventory", "库存"],
-    ["library", "菜谱"],
     ["buy", "采购"],
-    ["settings", "设置"],
   ];
 
   return `
