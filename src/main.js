@@ -98,7 +98,7 @@ function attachEvents() {
         render();
         break;
       case "open-add-ingredient":
-        uiState.addingIngredient = { name: "", category: "蛋白质", acceptedLabel: "爱吃" };
+        uiState.addingIngredient = { name: "", category: "蛋白质", acceptedLabel: "爱吃", quantity: 1 };
         render();
         break;
       case "close-add-ingredient":
@@ -117,6 +117,12 @@ function attachEvents() {
           render();
         }
         break;
+      case "set-ingredient-quantity":
+        if (uiState.addingIngredient) {
+          uiState.addingIngredient.quantity = parseInt(actionTarget.dataset.quantity, 10);
+          render();
+        }
+        break;
       case "save-ingredient": {
         if (!uiState.addingIngredient) break;
         const name = uiState.addingIngredient.name.trim();
@@ -126,6 +132,7 @@ function attachEvents() {
           name,
           category: uiState.addingIngredient.category,
           acceptedLabel: uiState.addingIngredient.acceptedLabel,
+          quantity: uiState.addingIngredient.quantity,
           note: "",
           stockStatus: "in-stock",
         };
@@ -946,9 +953,10 @@ function renderCategoryPicker() {
 }
 
 function renderAddIngredientDrawer() {
-  const { name, category, acceptedLabel } = uiState.addingIngredient;
+  const { name, category, acceptedLabel, quantity } = uiState.addingIngredient;
   const categories = ["蛋白质", "蔬菜", "主食"];
   const accepted = ["爱吃", "一般"];
+  const quantities = [1, 2, 3, 4, 5];
 
   return `
     <div class="drawer-overlay" data-action="close-add-ingredient" role="button" aria-label="关闭"></div>
@@ -995,6 +1003,19 @@ function renderAddIngredientDrawer() {
                 data-label="${lbl}"
                 type="button"
               >${lbl}</button>
+            `).join("")}
+          </div>
+        </div>
+        <div class="drawer-group">
+          <p class="drawer-group-label">数量</p>
+          <div class="filter-row">
+            ${quantities.map((q) => `
+              <button
+                class="filter-button drawer-filter-button ${quantity === q ? "active" : ""}"
+                data-action="set-ingredient-quantity"
+                data-quantity="${q}"
+                type="button"
+              >${q}</button>
             `).join("")}
           </div>
         </div>
