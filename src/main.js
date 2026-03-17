@@ -691,6 +691,9 @@ function render() {
     return;
   }
 
+  const prevDrawerScroll = root.querySelector(".drawer-body")?.scrollTop ?? 0;
+  const drawerWasOpen = !!root.querySelector(".drawer");
+
   document.body.dataset.tab = uiState.activeTab;
   const today = getTodayKey();
   const previousPlanCount = state.plans.length;
@@ -716,6 +719,15 @@ function render() {
     ${uiState.editingIngredientId ? renderEditIngredientDrawer(uiState.editingIngredientId) : ""}
     ${uiState.schedulingRecipeId ? renderScheduleDrawer(uiState.schedulingRecipeId) : ""}
   `;
+
+  const drawer = root.querySelector(".drawer");
+  if (drawer) {
+    if (!drawerWasOpen) drawer.classList.add("is-opening");
+    if (prevDrawerScroll > 0) {
+      const drawerBody = drawer.querySelector(".drawer-body");
+      if (drawerBody) drawerBody.scrollTop = prevDrawerScroll;
+    }
+  }
 }
 
 function renderAuthShell() {
@@ -1234,7 +1246,6 @@ function renderInventoryPage() {
             <p class="section-overline">Stock Status</p>
             <h3 class="section-title">我的库存</h3>
           </div>
-          <span class="badge sage">${state.ingredients.filter((i) => i.stockStatus === "in-stock").length} 有货</span>
         </div>
         ${categories.map((cat) => {
           const ings = state.ingredients.filter((i) => i.category === cat);
@@ -1525,10 +1536,7 @@ function buildRecipeName(ingredientIds) {
   const ings = ingredientIds
     .map((id) => state.ingredients.find((i) => i.id === id))
     .filter(Boolean);
-  const protein = ings.find((i) => i.category === "蛋白质")?.name ?? "";
-  const veg = ings.find((i) => i.category === "蔬菜")?.name ?? "";
-  const staple = ings.find((i) => i.category === "主食")?.name ?? "";
-  return [protein, veg, staple].filter(Boolean).join("") || "新菜谱";
+  return ings.map((i) => i.name).join("·") || "新菜谱";
 }
 
 function renderRecipeCreatorDrawer() {
