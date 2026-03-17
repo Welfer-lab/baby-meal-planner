@@ -333,6 +333,13 @@ export function addIngredient(state, ingredient) {
 export function deleteIngredient(state, ingredientId) {
   const nextState = cloneState(state);
   nextState.ingredients = nextState.ingredients.filter((i) => i.id !== ingredientId);
+  nextState.recipes = nextState.recipes.map((recipe) => ({
+    ...recipe,
+    ingredientIds: recipe.ingredientIds.filter((id) => id !== ingredientId),
+  }));
+  if (ingredientId in nextState.shoppingChecks) {
+    delete nextState.shoppingChecks[ingredientId];
+  }
   return nextState;
 }
 
@@ -412,9 +419,11 @@ export function buildIngredientHistory(state, currentDate) {
     day.meals.forEach((meal) => {
       if (!meal.recipe) return;
       meal.recipe.ingredientIds.forEach((ingredientId) => {
+        const ingredient = ingredientMap.get(ingredientId);
+        if (!ingredient) return;
         if (!historyMap.has(ingredientId)) {
           historyMap.set(ingredientId, {
-            ...ingredientMap.get(ingredientId),
+            ...ingredient,
             lastSeenOn: day.date,
             seenInRecipe: meal.recipe.name,
           });
@@ -499,7 +508,7 @@ export function getMealViewModel(state, date, slot) {
     ...meal,
     slotLabel: mealSlotLabels[slot],
     recipe,
-    ingredients: recipe.ingredientIds.map((ingredientId) => ingredientMap.get(ingredientId)),
+    ingredients: recipe.ingredientIds.map((ingredientId) => ingredientMap.get(ingredientId)).filter(Boolean),
     alternatives: state.recipes.filter(
       (candidate) => candidate.id !== recipe.id && candidate.slots.includes(slot),
     ),

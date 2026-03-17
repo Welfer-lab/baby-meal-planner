@@ -438,7 +438,7 @@ function renderMealCard(date, meal) {
           <h3 class="meal-title">${meal.recipe.name}</h3>
         </div>
         <button
-          class="${meal.completed ? "secondary-button" : "primary-button"}"
+          class="${meal.completed ? "secondary-button is-completed-button" : "primary-button"}"
           data-action="toggle-complete"
           data-date="${date}"
           data-slot="${meal.slot}"
@@ -654,7 +654,7 @@ function renderAddIngredientDrawer() {
           <div class="filter-row">
             ${categories.map((cat) => `
               <button
-                class="filter-button ${category === cat ? "active" : ""}"
+                class="filter-button drawer-filter-button ${category === cat ? "active" : ""}"
                 data-action="set-ingredient-category"
                 data-category="${cat}"
                 type="button"
@@ -667,7 +667,7 @@ function renderAddIngredientDrawer() {
           <div class="filter-row">
             ${accepted.map((lbl) => `
               <button
-                class="filter-button ${acceptedLabel === lbl ? "active" : ""}"
+                class="filter-button drawer-filter-button ${acceptedLabel === lbl ? "active" : ""}"
                 data-action="set-ingredient-accepted"
                 data-label="${lbl}"
                 type="button"
@@ -804,13 +804,20 @@ function renderInventoryPage() {
                   const hasStock = ing.stockStatus === "in-stock";
                   return `
                     <div
-                      class="ingredient-toggle-card ${hasStock ? "is-stocked " + categoryClass(cat) : ""}"
+                      class="ingredient-toggle-card with-remove ${hasStock ? "is-stocked " + categoryClass(cat) : ""}"
                       data-action="set-stock"
                       data-ingredient-id="${ing.id}"
                       data-stock="${hasStock ? "missing" : "in-stock"}"
                       role="button"
                       tabindex="0"
                     >
+                      <button
+                        class="ingredient-remove-button"
+                        data-action="delete-ingredient"
+                        data-ingredient-id="${ing.id}"
+                        type="button"
+                        aria-label="删除 ${escapeHtml(ing.name)}"
+                      >x</button>
                       <span class="ingredient-toggle-name">${escapeHtml(ing.name)}</span>
                       <span class="ingredient-toggle-label">${ing.acceptedLabel}</span>
                       <span class="ingredient-toggle-status">${hasStock ? "有" : "没有"}</span>

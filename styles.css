@@ -674,6 +674,16 @@ textarea {
   box-shadow: none;
 }
 
+.is-completed-button {
+  background: #fed709;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.is-completed-button:active {
+  background: #fed709;
+}
+
 .ghost-button {
   background: var(--surface);
   color: var(--text);
@@ -716,9 +726,18 @@ textarea {
   box-shadow: 2px 2px 0px var(--border);
 }
 
+.drawer-filter-button {
+  transition: none;
+}
+
 .filter-button:active {
   transform: translate(2px, 2px);
   box-shadow: none;
+}
+
+.drawer-filter-button:active {
+  transform: none;
+  box-shadow: 2px 2px 0px var(--border);
 }
 
 .filter-button.active {
@@ -996,6 +1015,7 @@ textarea {
 }
 
 .ingredient-toggle-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1011,6 +1031,10 @@ textarea {
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   box-shadow: 2px 2px 0px var(--border);
+}
+
+.ingredient-toggle-card.with-remove {
+  padding-top: 28px;
 }
 
 .ingredient-toggle-card:active {
@@ -1064,6 +1088,29 @@ textarea {
 
 .ingredient-toggle-card.is-stocked.cat-staple .ingredient-toggle-status {
   color: var(--peach-dark);
+}
+
+.ingredient-remove-button {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  min-width: auto;
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+  color: #9f9f9f;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: none;
+  z-index: 1;
+}
+
+.ingredient-remove-button:active {
+  transform: translate(1px, 1px);
+  color: #7f7f7f;
 }
 
 /* ==========================================

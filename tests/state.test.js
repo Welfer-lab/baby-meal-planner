@@ -5,7 +5,9 @@ import { readFileSync } from "node:fs";
 import {
   buildShoppingList,
   createSeedState,
+  deleteIngredient,
   ensurePlanWindow,
+  getDashboardSnapshot,
   getHistoryDays,
   getMealPlan,
   replaceMealRecipe,
@@ -107,6 +109,17 @@ test("ensurePlanWindow keeps history and appends new future plans when today mov
   assert.ok(updated.plans.find((plan) => plan.date === "2026-03-20"));
 });
 
+test("deleteIngredient removes the ingredient from recipes so meal plans stay renderable", () => {
+  const state = createSeedState("2026-03-15");
+  const updated = deleteIngredient(state, "salmon");
+  const dinnerRecipe = updated.recipes.find((recipe) => recipe.id === "salmon-pumpkin-oat");
+  const snapshot = getDashboardSnapshot(updated, "2026-03-18");
+
+  assert.equal(updated.ingredients.some((ingredient) => ingredient.id === "salmon"), false);
+  assert.equal(dinnerRecipe.ingredientIds.includes("salmon"), false);
+  assert.equal(snapshot.ingredientHistory.some((ingredient) => ingredient.id === "salmon"), false);
+});
+
 test("hero top copy no longer shows stage badge or desktop install hint", () => {
   const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
 
@@ -187,4 +200,38 @@ test("upcoming meal badges nudge left to align with placeholder copy", () => {
 
   assert.equal(stylesheet.includes(".upcoming-item .badge"), true);
   assert.equal(stylesheet.includes("margin-left: -1px;"), true);
+});
+
+test("completed meal action uses a dedicated yellow finished button style", () => {
+  const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  const stylesheet = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+
+  assert.equal(source.includes("is-completed-button"), true);
+  assert.equal(stylesheet.includes(".is-completed-button"), true);
+  assert.equal(stylesheet.includes("#fed709"), true);
+});
+
+test("inventory cards expose a delete action for ingredients", () => {
+  const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  const stylesheet = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+
+  assert.equal(source.includes('data-action="delete-ingredient"'), true);
+  assert.equal(source.includes("ingredient-remove-button"), true);
+  assert.equal(stylesheet.includes(".ingredient-remove-button"), true);
+  assert.equal(source.includes(">x</button>"), true);
+  assert.equal(stylesheet.includes("background: transparent;"), true);
+  assert.equal(stylesheet.includes("border: 0;"), true);
+  assert.equal(stylesheet.includes("color: #9f9f9f;"), true);
+});
+
+test("add ingredient drawer filter buttons disable press bounce animation", () => {
+  const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  const stylesheet = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+
+  assert.equal(source.includes("drawer-filter-button"), true);
+  assert.equal(stylesheet.includes(".drawer-filter-button {"), true);
+  assert.equal(stylesheet.includes("transition: none;"), true);
+  assert.equal(stylesheet.includes(".drawer-filter-button:active"), true);
+  assert.equal(stylesheet.includes("transform: none;"), true);
+  assert.equal(stylesheet.includes("box-shadow: 2px 2px 0px var(--border);"), true);
 });
