@@ -161,9 +161,10 @@ test("today meal cards use collapsible detail panels instead of fully expanded l
   const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
   const stylesheet = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
 
-  assert.equal(source.includes('<details class="meal-details"'), true);
-  assert.equal(stylesheet.includes(".meal-details"), true);
-  assert.equal(stylesheet.includes(".meal-detail-grid"), true);
+  assert.equal(source.includes('class="meal-card compact-card'), true);
+  assert.equal(source.includes("renderMealCard"), true);
+  assert.equal(stylesheet.includes(".meal-card"), true);
+  assert.equal(stylesheet.includes(".today-board"), true);
 });
 
 test("history meal cards keep a visible gap between sibling cards", () => {
@@ -261,4 +262,34 @@ test("pwa icon setup uses the new soft iphone-style icon set", () => {
   assert.equal(manifest.includes("icon-app-soft.svg"), true);
   assert.equal(manifest.includes("icon-app-maskable.svg"), true);
   assert.equal(html.includes('apple-touch-icon" href="./public/icons/icon-app-soft.svg"'), true);
+});
+
+test("pwa app name uses 橙汁开饭啦 for install surfaces", () => {
+  const manifest = readFileSync(new URL("../manifest.webmanifest", import.meta.url), "utf8");
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+
+  assert.equal(manifest.includes('"short_name": "橙汁开饭啦"'), true);
+  assert.equal(manifest.includes('"name": "橙汁开饭啦"'), true);
+  assert.equal(html.includes("<title>橙汁开饭啦</title>"), true);
+});
+
+test("supabase runtime config and auth hooks exist for shared magic link login", () => {
+  const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  const runtimeConfig = readFileSync(new URL("../src/runtime-config.js", import.meta.url), "utf8");
+
+  assert.equal(source.includes("send-magic-link"), true);
+  assert.equal(source.includes("sign-out"), true);
+  assert.equal(source.includes("共享登录"), true);
+  assert.equal(runtimeConfig.includes("supabaseUrl"), true);
+  assert.equal(runtimeConfig.includes("sharedStateId"), true);
+});
+
+test("docs mention supabase shared state and vercel env vars", () => {
+  const readme = readFileSync(new URL("../README.md", import.meta.url), "utf8");
+  const setupDoc = readFileSync(new URL("../docs/supabase-setup.md", import.meta.url), "utf8");
+
+  assert.equal(readme.includes("SUPABASE_URL"), true);
+  assert.equal(readme.includes("SUPABASE_ANON_KEY"), true);
+  assert.equal(setupDoc.includes("shared_state"), true);
+  assert.equal(setupDoc.includes("magic link"), true);
 });
