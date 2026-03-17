@@ -1,0 +1,24 @@
+{
+  "name": "橙汁开饭啦",
+  "short_name": "橙汁开饭啦",
+  "description": "帮助家庭安排宝宝今日午餐、晚餐、采购提醒和历史回看。",
+  "display": "standalone",
+  "start_url": "./",
+  "scope": "./",
+  "background_color": "#f7efe3",
+  "theme_color": "#efb07d",
+  "icons": [
+    {
+      "src": "./public/icons/icon-app-soft.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./public/icons/icon-app-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

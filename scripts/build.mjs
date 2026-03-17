@@ -1,4 +1,4 @@
-import { cpSync, copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { cpSync, copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -18,3 +18,23 @@ for (const dir of ["src", "public"]) {
     cpSync(from, resolve(distDir, dir), { recursive: true });
   }
 }
+
+const runtimeConfigTarget = resolve(distDir, "src", "runtime-config.js");
+const runtimeConfigSource = `export const runtimeConfig = ${JSON.stringify(
+  {
+    supabaseUrl: process.env.SUPABASE_URL ?? "",
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY ?? "",
+    sharedStateId: process.env.SUPABASE_SHARED_STATE_ID ?? "shared-home",
+    sharedLoginEmail: process.env.SHARED_LOGIN_EMAIL ?? "",
+    redirectTo: process.env.SUPABASE_REDIRECT_URL ?? "",
+  },
+  null,
+  2,
+)};
+
+export function isSupabaseEnabled() {
+  return Boolean(runtimeConfig.supabaseUrl && runtimeConfig.supabaseAnonKey);
+}
+`;
+
+writeFileSync(runtimeConfigTarget, runtimeConfigSource, "utf8");

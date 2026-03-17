@@ -16,3 +16,17 @@ npm run serve
 ```
 
 然后打开 `http://localhost:4173`。
+
+## Supabase 多设备同步
+
+如果要让你和家人多设备同步同一份数据，需要在部署环境里配置：
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SHARED_STATE_ID`
+- `SHARED_LOGIN_EMAIL`
+- `SUPABASE_REDIRECT_URL`
+
+完整步骤见：
+
+- [docs/supabase-setup.md](/Users/new/Documents/vibe%20coding/小橙汁做饭记录/docs/supabase-setup.md)
