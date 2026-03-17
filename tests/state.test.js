@@ -253,3 +253,12 @@ test("build script creates a dedicated dist output for vercel static hosting", (
   assert.equal(buildScript.includes("mkdirSync(distDir"), true);
   assert.equal(buildScript.includes("copyFileSync"), true);
 });
+
+test("pwa icon setup uses the new soft iphone-style icon set", () => {
+  const manifest = readFileSync(new URL("../manifest.webmanifest", import.meta.url), "utf8");
+  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+
+  assert.equal(manifest.includes("icon-app-soft.svg"), true);
+  assert.equal(manifest.includes("icon-app-maskable.svg"), true);
+  assert.equal(html.includes('apple-touch-icon" href="./public/icons/icon-app-soft.svg"'), true);
+});
