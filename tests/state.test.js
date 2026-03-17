@@ -235,3 +235,10 @@ test("add ingredient drawer filter buttons disable press bounce animation", () =
   assert.equal(stylesheet.includes("transform: none;"), true);
   assert.equal(stylesheet.includes("box-shadow: 2px 2px 0px var(--border);"), true);
 });
+
+test("vercel deployment config rewrites all routes to index for static pwa hosting", () => {
+  const config = readFileSync(new URL("../vercel.json", import.meta.url), "utf8");
+
+  assert.equal(config.includes("\"source\": \"/(.*)\""), true);
+  assert.equal(config.includes("\"destination\": \"/index.html\""), true);
+});
