@@ -166,3 +166,25 @@ test("recipe cards keep a visible vertical gap between sibling cards", () => {
   assert.equal(stylesheet.includes(".recipe-list"), true);
   assert.equal(stylesheet.includes("gap: 8px;"), true);
 });
+
+test("inventory page keeps 食物选配 for picker and 我的库存 for stock status", () => {
+  const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+
+  assert.equal(source.includes("我的库存"), true);
+  assert.equal(source.includes("食物选配"), true);
+});
+
+test("upcoming meal placeholders keep extra spacing below the meal badge", () => {
+  const stylesheet = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+
+  assert.equal(stylesheet.includes(".upcoming-item .helper-copy"), true);
+  assert.equal(stylesheet.includes("margin-top: 8px;"), true);
+  assert.equal(stylesheet.includes("padding-left: 6px;"), true);
+});
+
+test("upcoming meal badges nudge left to align with placeholder copy", () => {
+  const stylesheet = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+
+  assert.equal(stylesheet.includes(".upcoming-item .badge"), true);
+  assert.equal(stylesheet.includes("margin-left: -1px;"), true);
+});

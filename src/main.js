@@ -789,7 +789,7 @@ function renderInventoryPage() {
         <div class="header-row">
           <div>
             <p class="section-overline">Stock Status</p>
-            <h3 class="section-title">食物选配</h3>
+            <h3 class="section-title">我的库存</h3>
           </div>
           <span class="badge sage">${state.ingredients.filter((i) => i.stockStatus === "in-stock").length} 有货</span>
         </div>
