@@ -43,6 +43,7 @@ const uiState = {
   notice: "",
   installPrompt: null,
   authEmail: runtimeConfig.sharedLoginEmail || "",
+  authPassword: "",
 };
 
 const cloudState = {
@@ -383,8 +384,8 @@ function attachEvents() {
       case "install":
         void promptInstall();
         break;
-      case "send-magic-link":
-        void requestMagicLink();
+      case "sign-in-password":
+        void signInWithPassword();
         break;
       case "sign-out":
         void signOutSharedAccount();
@@ -405,6 +406,9 @@ function attachEvents() {
 
     if (target.matches("[data-role='magic-email']")) {
       uiState.authEmail = target.value;
+    }
+    if (target.matches("[data-role='auth-password']")) {
+      uiState.authPassword = target.value;
     }
   });
 
@@ -597,14 +601,14 @@ async function handleSessionChange(session) {
   render();
 }
 
-async function requestMagicLink() {
-  if (!cloudState.client) {
-    return;
-  }
+async function signInWithPassword() {
+  if (!cloudState.client) return;
 
   const email = uiState.authEmail.trim();
-  if (!email) {
-    cloudState.error = "请输入共享邮箱";
+  const password = uiState.authPassword;
+
+  if (!email || !password) {
+    cloudState.error = "请输入邮箱和密码";
     render();
     return;
   }
@@ -614,24 +618,16 @@ async function requestMagicLink() {
   cloudState.helper = "";
   render();
 
-  const redirectTo = runtimeConfig.redirectTo || window.location.origin;
-  const { error } = await cloudState.client.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: redirectTo,
-    },
-  });
+  const { error } = await cloudState.client.auth.signInWithPassword({ email, password });
 
   if (error) {
     cloudState.status = "error";
-    cloudState.error = error.message || "Magic link 发送失败";
+    cloudState.error = error.message || "登录失败，请检查邮箱和密码";
     render();
     return;
   }
 
-  cloudState.status = "signed_out";
-  cloudState.helper = `Magic link 已发送到 ${email}`;
-  render();
+  // session 变化会触发 onAuthStateChange → handleSessionChange → render
 }
 
 async function signOutSharedAccount() {
@@ -870,34 +866,37 @@ function render() {
 
 function renderAuthShell() {
   const isBusy = cloudState.status === "checking" || cloudState.status === "sending";
-  const helper = cloudState.error || cloudState.helper || (isBusy ? "正在准备共享登录…" : "使用同一个邮箱登录后，你和家人会共用同一份数据库。");
+  const helper = cloudState.error || cloudState.helper || (isBusy ? "正在登录…" : "");
 
   return `
     <div class="auth-shell fade-up">
       <section class="auth-card">
-        <p class="section-overline">Shared Sync</p>
-        <h1 class="auth-title">共享登录</h1>
-        <p class="auth-copy">这版同步不做复杂注册，只需要一个家庭邮箱 magic link，就能让两台设备共用同一个数据库。</p>
+        <img class="hero-avatar" src="./public/pic.jpg" alt="小橙汁" style="margin-bottom:12px;" />
+        <h1 class="auth-title">小橙汁开饭啦</h1>
         <label class="auth-field">
-          <span class="field-label">共享邮箱</span>
+          <span class="field-label">邮箱</span>
           <input
             data-role="magic-email"
             type="email"
             inputmode="email"
             autocomplete="email"
-            placeholder="例如：family@example.com"
+            placeholder="family@example.com"
             value="${escapeHtml(uiState.authEmail)}"
           />
         </label>
-        <button class="primary-button" data-action="send-magic-link" type="button" ${isBusy ? "disabled" : ""}>
-          ${cloudState.status === "sending" ? "发送中…" : "发送 Magic Link"}
+        <label class="auth-field">
+          <span class="field-label">密码</span>
+          <input
+            data-role="auth-password"
+            type="password"
+            autocomplete="current-password"
+            placeholder="••••••••"
+          />
+        </label>
+        <button class="primary-button" data-action="sign-in-password" type="button" ${isBusy ? "disabled" : ""}>
+          ${isBusy ? "登录中…" : "登录"}
         </button>
-        <div class="sync-status-card">
-          <span class="sync-pill ${cloudState.error ? "error" : isBusy ? "pending" : "ready"}">
-            ${cloudState.error ? "需要处理" : isBusy ? "连接中" : "共享数据库"}
-          </span>
-          <p class="helper-copy">${escapeHtml(helper)}</p>
-        </div>
+        ${helper ? `<p class="helper-copy" style="text-align:center;margin-top:8px;">${escapeHtml(helper)}</p>` : ""}
       </section>
     </div>
   `;
