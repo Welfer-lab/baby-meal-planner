@@ -1580,10 +1580,12 @@ function renderLibraryPage() {
 function renderDayPlanCard(date, dayLabel) {
   const lunch = getMealViewModel(state, date, "lunch");
   const dinner = getMealViewModel(state, date, "dinner");
+  const [, m, d] = date.split("-").map(Number);
+  const dateLabel = `${m}/${d}`;
   return `
     <section class="panel-card compact-card wide-card">
       <div class="header-row" style="margin-bottom:12px;">
-        <h3 class="section-title">${dayLabel}</h3>
+        <h3 class="section-title">${dayLabel} <span style="font-size:0.75em;font-weight:400;color:var(--text-secondary);margin-left:4px;">${dateLabel}</span></h3>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px;">
         ${renderMealSlotCard(date, "lunch", "午餐", lunch)}
