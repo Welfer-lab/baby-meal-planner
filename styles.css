@@ -1033,7 +1033,10 @@ button:disabled {
 .plan-recipe-card.is-completed {
   background: #e8f8ee;
   border-color: #86c99a;
-  animation: complete-flash 400ms ease;
+}
+
+.plan-recipe-card.flash-complete {
+  animation: complete-flash 400ms ease forwards;
 }
 
 @keyframes complete-flash {
