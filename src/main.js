@@ -8,6 +8,7 @@ import {
   ensurePlanWindow,
   getDashboardSnapshot,
   getMealViewModel,
+  getMealPlan,
   toggleMealCompleted,
   toggleShoppingChecked,
   updateIngredientStock,
@@ -255,9 +256,23 @@ function attachEvents() {
         commit(replaceMealRecipe(s1, date, slot, newRecipe.id), "菜谱已保存并加入计划");
         break;
       }
-      case "complete-meal":
-        commit(toggleMealCompleted(state, actionTarget.dataset.date, actionTarget.dataset.slot), "已标记完成");
+      case "complete-meal": {
+        const { date: mealDate, slot: mealSlot } = actionTarget.dataset;
+        const mealPlan = getMealPlan(state, mealDate, mealSlot);
+        const wasCompleted = mealPlan?.completed ?? false;
+        let nextState = toggleMealCompleted(state, mealDate, mealSlot);
+        // 标记完成时扣减食材库存，取消完成时不恢复
+        if (!wasCompleted && mealPlan?.recipeId) {
+          const recipe = state.recipes.find((r) => r.id === mealPlan.recipeId);
+          if (recipe?.ingredientIds) {
+            for (const ingId of recipe.ingredientIds) {
+              nextState = useIngredient(nextState, ingId);
+            }
+          }
+        }
+        commit(nextState, wasCompleted ? "已取消完成" : "已标记完成");
         break;
+      }
       case "delete-recipe":
         commit(deleteRecipe(state, actionTarget.dataset.recipeId), "菜谱已删除");
         break;
@@ -438,10 +453,16 @@ function attachEvents() {
       if (ingCard) {
         uiState.editingIngredientId = card.dataset.longpressIngredient;
       } else {
+        const lpDate = card.dataset.longpressDate;
+        const lpSlot = card.dataset.longpressSlot;
+        const existingMeal = getMealPlan(state, lpDate, lpSlot);
+        const existingRecipe = existingMeal?.recipeId
+          ? state.recipes.find((r) => r.id === existingMeal.recipeId)
+          : null;
         uiState.creatingRecipe = {
-          ingredientIds: [],
+          ingredientIds: existingRecipe?.ingredientIds ? [...existingRecipe.ingredientIds] : [],
           pickingTime: false,
-          replaceSlot: { date: card.dataset.longpressDate, slot: card.dataset.longpressSlot },
+          replaceSlot: { date: lpDate, slot: lpSlot },
         };
       }
       render();
@@ -820,7 +841,17 @@ function render() {
 
   const drawer = root.querySelector(".drawer");
   if (drawer) {
-    if (!drawerWasOpen) drawer.classList.add("is-opening");
+    if (!drawerWasOpen) {
+      drawer.classList.add("is-opening");
+      // 首次打开抽屉时，滚动到第一个已选食材
+      const drawerBody = drawer.querySelector(".drawer-body");
+      if (drawerBody) {
+        const firstChecked = drawerBody.querySelector(".drawer-check.checked");
+        if (firstChecked) {
+          firstChecked.closest(".inventory-row")?.scrollIntoView({ block: "center" });
+        }
+      }
+    }
     if (prevDrawerScroll > 0) {
       const drawerBody = drawer.querySelector(".drawer-body");
       if (drawerBody) drawerBody.scrollTop = prevDrawerScroll;
