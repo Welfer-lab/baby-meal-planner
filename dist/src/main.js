@@ -453,10 +453,16 @@ function attachEvents() {
       if (ingCard) {
         uiState.editingIngredientId = card.dataset.longpressIngredient;
       } else {
+        const lpDate = card.dataset.longpressDate;
+        const lpSlot = card.dataset.longpressSlot;
+        const existingMeal = getMealPlan(state, lpDate, lpSlot);
+        const existingRecipe = existingMeal?.recipeId
+          ? state.recipes.find((r) => r.id === existingMeal.recipeId)
+          : null;
         uiState.creatingRecipe = {
-          ingredientIds: [],
+          ingredientIds: existingRecipe?.ingredientIds ? [...existingRecipe.ingredientIds] : [],
           pickingTime: false,
-          replaceSlot: { date: card.dataset.longpressDate, slot: card.dataset.longpressSlot },
+          replaceSlot: { date: lpDate, slot: lpSlot },
         };
       }
       render();
