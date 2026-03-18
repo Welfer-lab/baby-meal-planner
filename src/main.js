@@ -813,11 +813,10 @@ function announce(message) {
 }
 
 function render() {
-  // 共享登录暂时跳过
-  // if (cloudState.enabled && (!cloudState.session || cloudState.status === "checking" || cloudState.status === "sending")) {
-  //   root.innerHTML = renderAuthShell();
-  //   return;
-  // }
+  if (cloudState.enabled && (!cloudState.session || cloudState.status === "checking" || cloudState.status === "sending")) {
+    root.innerHTML = renderAuthShell();
+    return;
+  }
 
   const prevDrawerScroll = root.querySelector(".drawer-body")?.scrollTop ?? 0;
   const drawerWasOpen = !!root.querySelector(".drawer");
