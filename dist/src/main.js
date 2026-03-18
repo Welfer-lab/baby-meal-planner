@@ -841,7 +841,17 @@ function render() {
 
   const drawer = root.querySelector(".drawer");
   if (drawer) {
-    if (!drawerWasOpen) drawer.classList.add("is-opening");
+    if (!drawerWasOpen) {
+      drawer.classList.add("is-opening");
+      // 首次打开抽屉时，滚动到第一个已选食材
+      const drawerBody = drawer.querySelector(".drawer-body");
+      if (drawerBody) {
+        const firstChecked = drawerBody.querySelector(".drawer-check.checked");
+        if (firstChecked) {
+          firstChecked.closest(".inventory-row")?.scrollIntoView({ block: "center" });
+        }
+      }
+    }
     if (prevDrawerScroll > 0) {
       const drawerBody = drawer.querySelector(".drawer-body");
       if (drawerBody) drawerBody.scrollTop = prevDrawerScroll;
