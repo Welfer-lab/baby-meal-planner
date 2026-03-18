@@ -217,8 +217,23 @@ function attachEvents() {
       }
       case "save-recipe": {
         if (!uiState.creatingRecipe) break;
-        uiState.creatingRecipe.pickingTime = true;
-        render();
+        if (uiState.creatingRecipe.replaceSlot) {
+          const { ingredientIds, replaceSlot } = uiState.creatingRecipe;
+          const { date, slot } = replaceSlot;
+          const newRecipe = {
+            id: `custom-${Date.now()}`,
+            name: buildRecipeName(ingredientIds),
+            stageLabel: "9-12个月",
+            slots: [slot],
+            ingredientIds,
+          };
+          uiState.creatingRecipe = null;
+          const s1 = addRecipe(state, newRecipe);
+          commit(replaceMealRecipe(s1, date, slot, newRecipe.id), "菜谱已更新");
+        } else {
+          uiState.creatingRecipe.pickingTime = true;
+          render();
+        }
         break;
       }
       case "confirm-recipe-time": {
@@ -402,7 +417,11 @@ function attachEvents() {
       if (ingCard) {
         uiState.editingIngredientId = card.dataset.longpressIngredient;
       } else {
-        uiState.schedulingSlot = { date: card.dataset.longpressDate, slot: card.dataset.longpressSlot };
+        uiState.creatingRecipe = {
+          ingredientIds: [],
+          pickingTime: false,
+          replaceSlot: { date: card.dataset.longpressDate, slot: card.dataset.longpressSlot },
+        };
       }
       render();
     }, 500);
@@ -1248,7 +1267,7 @@ function renderScheduleDrawer(recipeId) {
 
 function renderSlotRecipePickerDrawer({ date, slot }) {
   const slotLabel = slot === "lunch" ? "午餐" : "晚餐";
-  const recipes = state.recipes.filter((r) => r.slots.includes(slot));
+  const recipes = state.recipes;
   return `
     <div class="drawer-overlay" data-action="close-slot-picker" role="button" aria-label="关闭"></div>
     <div class="drawer is-opening">
