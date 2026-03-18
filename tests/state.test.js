@@ -13,6 +13,7 @@ import {
   replaceMealRecipe,
   toggleMealCompleted,
   updateIngredientStock,
+  useIngredient,
 } from "../src/state.js";
 
 test("createSeedState seeds today plus next two days of lunch and dinner plans", () => {
@@ -95,6 +96,20 @@ test("buildShoppingList merges repeated ingredients into one entry with multiple
 
   assert.ok(rice);
   assert.equal(rice.sources.length, 2);
+});
+
+test("buildShoppingList treats a used-up seeded ingredient as missing inventory", () => {
+  let state = createSeedState("2026-03-15");
+  state = useIngredient(state, "salmon");
+
+  const list = buildShoppingList(state, {
+    from: "2026-03-15",
+    days: 3,
+  });
+  const salmon = list.find((item) => item.ingredientId === "salmon");
+
+  assert.ok(salmon);
+  assert.equal(salmon.stockStatus, "missing");
 });
 
 test("ensurePlanWindow keeps history and appends new future plans when today moves forward", () => {

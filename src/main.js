@@ -18,6 +18,7 @@ import {
   replaceMealRecipe,
   updateRecipeIngredients,
 } from "./state.js";
+import { isIngredientAvailable, needsIngredientRestock } from "./ingredient-stock.js";
 import { LONG_PRESS_DELAY_MS, movedBeyondLongPressTolerance } from "./longpress.js";
 import { isSupabaseEnabled, runtimeConfig } from "./runtime-config.js";
 
@@ -1336,11 +1337,7 @@ function renderSlotRecipePickerDrawer({ date, slot }) {
 }
 
 function renderBuyPage() {
-  const missingItems = state.ingredients.filter((i) => {
-    const qty = i.quantity ?? 1;
-    const used = i.used ?? 0;
-    return (qty - used) <= 0;
-  });
+  const missingItems = state.ingredients.filter((ingredient) => needsIngredientRestock(ingredient));
 
   return `
     <section class="dashboard-board">
@@ -1681,7 +1678,7 @@ function renderRecipeCard(recipe) {
 }
 
 function generateSuggestions(count = 3) {
-  const stocked = state.ingredients.filter((i) => i.stockStatus !== "missing");
+  const stocked = state.ingredients.filter((ingredient) => isIngredientAvailable(ingredient));
   const byCategory = (cat) => stocked.filter((i) => i.category === cat);
   const proteins = byCategory("蛋白质");
   const vegs = byCategory("蔬菜");
@@ -1811,11 +1808,7 @@ function renderRecipeCreatorDrawer() {
   }
 
   const categories = ["蛋白质", "蔬菜", "主食"];
-  const stockedIngredients = state.ingredients.filter((i) => {
-    const qty = i.quantity ?? 1;
-    const used = i.used ?? 0;
-    return i.stockStatus ? i.stockStatus === "in-stock" : (qty - used) > 0;
-  });
+  const stockedIngredients = state.ingredients.filter((ingredient) => isIngredientAvailable(ingredient));
 
   return `
     <div class="drawer-overlay" data-action="close-recipe-creator" role="button" aria-label="关闭"></div>

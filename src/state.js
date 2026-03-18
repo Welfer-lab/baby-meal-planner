@@ -1,3 +1,5 @@
+import { getIngredientStockStatus } from "./ingredient-stock.js";
+
 const mealSlotLabels = {
   lunch: "午餐",
   dinner: "晚餐",
@@ -467,14 +469,8 @@ export function buildShoppingList(state, { from, days = 3 }) {
 
       recipe.ingredientIds.forEach((ingredientId) => {
         const ingredient = ingredientMap.get(ingredientId);
-
-        const qty = ingredient.quantity ?? 1;
-        const used = ingredient.used ?? 0;
-        const remaining = qty - used;
-        const hasStock = ingredient.stockStatus
-          ? ingredient.stockStatus === "in-stock"
-          : remaining > 0;
-        if (!ingredient || hasStock) {
+        const stockStatus = getIngredientStockStatus(ingredient);
+        if (!ingredient || stockStatus === "in-stock") {
           return;
         }
 
@@ -482,7 +478,7 @@ export function buildShoppingList(state, { from, days = 3 }) {
           items.set(ingredientId, {
             ingredientId,
             ingredientName: ingredient.name,
-            stockStatus: remaining > 0 ? "in-stock" : "missing",
+            stockStatus,
             checked: state.shoppingChecks[ingredientId] ?? false,
             sources: [],
           });
