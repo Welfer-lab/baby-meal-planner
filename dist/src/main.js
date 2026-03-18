@@ -8,6 +8,7 @@ import {
   ensurePlanWindow,
   getDashboardSnapshot,
   getMealViewModel,
+  getMealPlan,
   toggleMealCompleted,
   toggleShoppingChecked,
   updateIngredientStock,
@@ -18,6 +19,7 @@ import {
   replaceMealRecipe,
   updateRecipeIngredients,
 } from "./state.js";
+import { isIngredientAvailable, needsIngredientRestock } from "./ingredient-stock.js";
 import { LONG_PRESS_DELAY_MS, movedBeyondLongPressTolerance } from "./longpress.js";
 import { isSupabaseEnabled, runtimeConfig } from "./runtime-config.js";
 
@@ -254,9 +256,23 @@ function attachEvents() {
         commit(replaceMealRecipe(s1, date, slot, newRecipe.id), "菜谱已保存并加入计划");
         break;
       }
-      case "complete-meal":
-        commit(toggleMealCompleted(state, actionTarget.dataset.date, actionTarget.dataset.slot), "已标记完成");
+      case "complete-meal": {
+        const { date: mealDate, slot: mealSlot } = actionTarget.dataset;
+        const mealPlan = getMealPlan(state, mealDate, mealSlot);
+        const wasCompleted = mealPlan?.completed ?? false;
+        let nextState = toggleMealCompleted(state, mealDate, mealSlot);
+        // 标记完成时扣减食材库存，取消完成时不恢复
+        if (!wasCompleted && mealPlan?.recipeId) {
+          const recipe = state.recipes.find((r) => r.id === mealPlan.recipeId);
+          if (recipe?.ingredientIds) {
+            for (const ingId of recipe.ingredientIds) {
+              nextState = useIngredient(nextState, ingId);
+            }
+          }
+        }
+        commit(nextState, wasCompleted ? "已取消完成" : "已标记完成");
         break;
+      }
       case "delete-recipe":
         commit(deleteRecipe(state, actionTarget.dataset.recipeId), "菜谱已删除");
         break;
@@ -1336,11 +1352,7 @@ function renderSlotRecipePickerDrawer({ date, slot }) {
 }
 
 function renderBuyPage() {
-  const missingItems = state.ingredients.filter((i) => {
-    const qty = i.quantity ?? 1;
-    const used = i.used ?? 0;
-    return (qty - used) <= 0;
-  });
+  const missingItems = state.ingredients.filter((ingredient) => needsIngredientRestock(ingredient));
 
   return `
     <section class="dashboard-board">
@@ -1681,7 +1693,7 @@ function renderRecipeCard(recipe) {
 }
 
 function generateSuggestions(count = 3) {
-  const stocked = state.ingredients.filter((i) => i.stockStatus !== "missing");
+  const stocked = state.ingredients.filter((ingredient) => isIngredientAvailable(ingredient));
   const byCategory = (cat) => stocked.filter((i) => i.category === cat);
   const proteins = byCategory("蛋白质");
   const vegs = byCategory("蔬菜");
@@ -1811,11 +1823,7 @@ function renderRecipeCreatorDrawer() {
   }
 
   const categories = ["蛋白质", "蔬菜", "主食"];
-  const stockedIngredients = state.ingredients.filter((i) => {
-    const qty = i.quantity ?? 1;
-    const used = i.used ?? 0;
-    return i.stockStatus ? i.stockStatus === "in-stock" : (qty - used) > 0;
-  });
+  const stockedIngredients = state.ingredients.filter((ingredient) => isIngredientAvailable(ingredient));
 
   return `
     <div class="drawer-overlay" data-action="close-recipe-creator" role="button" aria-label="关闭"></div>
