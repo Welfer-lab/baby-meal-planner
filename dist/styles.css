@@ -116,6 +116,7 @@
 html {
   min-height: 100%;
   background: var(--bg);
+  font-size: 18px;
 }
 
 /* journeygen 风格点阵背景 — 更大更明显 */
@@ -147,7 +148,7 @@ textarea, input, select {
   padding: 9px 12px;
   outline: none;
   transition: border-color 150ms, box-shadow 150ms;
-  font-size: 0.88rem;
+  font-size: 16px;
 }
 
 textarea:focus, input:focus, select:focus {
@@ -389,8 +390,8 @@ textarea {
 }
 
 .badge.sage {
-  background: var(--stocked-bg);
-  color: var(--stocked-text);
+  background: var(--peach-bg);
+  color: var(--peach-dark);
 }
 
 /* 食材分类 — 鲜亮三色 */
@@ -405,8 +406,8 @@ textarea {
 }
 
 .badge.cat-staple {
-  background: var(--peach-bg);
-  color: var(--peach-dark);
+  background: #bbdff4;
+  color: #4A6FA5;
 }
 
 .pill {
@@ -425,8 +426,8 @@ textarea {
 }
 
 .pill.cat-staple {
-  background: var(--peach-bg);
-  color: var(--peach-dark);
+  background: #bbdff4;
+  color: #4A6FA5;
 }
 
 .pill.stock-missing,
@@ -1016,6 +1017,118 @@ button:disabled {
 }
 
 /* ==========================================
+   计划菜谱卡片
+   ========================================== */
+.plan-recipe-card {
+  position: relative;
+  padding: 12px 14px 36px;
+  border-radius: var(--r);
+  background: var(--surface-2);
+  border: 1.5px solid var(--border-mid);
+  display: grid;
+  gap: 4px;
+  transition: background 400ms ease, border-color 400ms ease;
+}
+
+.plan-recipe-card.is-completed {
+  background: #e8f8ee;
+  border-color: #86c99a;
+  animation: complete-flash 400ms ease;
+}
+
+@keyframes complete-flash {
+  0%   { background: var(--surface-2); }
+  40%  { background: #c6f0d4; }
+  100% { background: #e8f8ee; }
+}
+
+.plan-recipe-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.plan-recipe-complete {
+  background: none;
+  border: 2px solid #ccc;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  font-size: 0.75rem;
+  color: #ccc;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 200ms, border-color 200ms, color 200ms;
+  flex-shrink: 0;
+}
+
+.plan-recipe-complete.done {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.plan-recipe-remove {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  color: var(--text-3);
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 4px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plan-recipe-remove:hover {
+  color: var(--accent);
+}
+
+.plan-recipe-slot-badge {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+}
+
+.meal-slot-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-radius: var(--r);
+  border: 2px dashed var(--border-mid);
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-3);
+}
+
+.meal-slot-empty-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.meal-slot-empty-hint {
+  font-size: 0.78rem;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.buy-item-hint {
+  font-size: 0.78rem;
+  color: var(--accent);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* ==========================================
    食材切换卡片网格
    ========================================== */
 .ingredient-toggle-grid {
@@ -1034,7 +1147,7 @@ button:disabled {
   padding: 14px 8px;
   border-radius: var(--r);
   border: 2.5px solid var(--border);
-  background: var(--surface-2);
+  background: #E8E8E8;
   cursor: pointer;
   text-align: center;
   transition: transform 80ms, box-shadow 80ms;
@@ -1065,7 +1178,7 @@ button:disabled {
 }
 
 .ingredient-toggle-card.is-stocked.cat-staple {
-  background: var(--peach-bg);
+  background: #bbdff4;
 }
 
 .ingredient-toggle-name {
@@ -1089,15 +1202,24 @@ button:disabled {
 }
 
 .ingredient-toggle-card.is-stocked .ingredient-toggle-status {
-  color: var(--stocked-text);
+  color: #2563EB;
 }
 
 .ingredient-toggle-card.is-stocked.cat-protein .ingredient-toggle-status {
   color: var(--accent-dark);
 }
 
+.ingredient-toggle-card.is-stocked.cat-veg .ingredient-toggle-status {
+  color: #166534;
+}
+
 .ingredient-toggle-card.is-stocked.cat-staple .ingredient-toggle-status {
-  color: var(--peach-dark);
+  color: #2563EB;
+}
+
+.ingredient-toggle-status.is-empty {
+  color: var(--text-3);
+  opacity: 0.45;
 }
 
 .ingredient-remove-button {
@@ -1465,7 +1587,7 @@ button:disabled {
   left: 50%;
   transform: translateX(-50%);
   width: min(100%, var(--content-width));
-  max-height: 80dvh;
+  height: 80dvh;
   background: var(--surface);
   border: 2.5px solid var(--border);
   border-bottom: none;
@@ -1473,13 +1595,17 @@ button:disabled {
   z-index: 50;
   display: flex;
   flex-direction: column;
-  animation: drawer-up 260ms cubic-bezier(0.34, 1.4, 0.64, 1);
+  animation: none;
   box-shadow: 0 -4px 0 var(--border);
 }
 
 @keyframes drawer-up {
   from { transform: translateX(-50%) translateY(100%); }
   to   { transform: translateX(-50%) translateY(0); }
+}
+
+.drawer.is-opening {
+  animation: drawer-up 260ms cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
 .drawer-header {
@@ -1493,6 +1619,7 @@ button:disabled {
 }
 
 .drawer-body {
+  flex: 1;
   overflow-y: auto;
   padding: 14px 18px 36px;
   display: grid;

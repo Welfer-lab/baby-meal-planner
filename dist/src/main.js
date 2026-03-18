@@ -11,6 +11,8 @@ import {
   toggleMealCompleted,
   toggleShoppingChecked,
   updateIngredientStock,
+  useIngredient,
+  resetIngredient,
   updateMealNote,
   updateProfile,
   replaceMealRecipe,
@@ -23,14 +25,17 @@ const SHARED_STATE_TABLE = "shared_state";
 const root = document.querySelector("#app");
 
 const uiState = {
-  activeTab: new URLSearchParams(location.search).get("tab") || "today",
+  activeTab: new URLSearchParams(location.search).get("tab") || "library",
   swapKey: null,
   recipeFilter: "all",
   openCategory: null,
   editingRecipeId: null,
   creatingRecipe: null,
   addingIngredient: null,
+  editingIngredientId: null,
+  buyingIngredientId: null,
   schedulingRecipeId: null,
+  schedulingSlot: null,
   suggestionSeed: Date.now(),
   notice: "",
   installPrompt: null,
@@ -98,7 +103,7 @@ function attachEvents() {
         render();
         break;
       case "open-add-ingredient":
-        uiState.addingIngredient = { name: "", category: "蛋白质", acceptedLabel: "爱吃" };
+        uiState.addingIngredient = { name: "", category: "蛋白质", acceptedLabel: "爱吃", quantity: 1 };
         render();
         break;
       case "close-add-ingredient":
@@ -117,6 +122,12 @@ function attachEvents() {
           render();
         }
         break;
+      case "set-ingredient-quantity":
+        if (uiState.addingIngredient) {
+          uiState.addingIngredient.quantity = parseInt(actionTarget.dataset.quantity, 10);
+          render();
+        }
+        break;
       case "save-ingredient": {
         if (!uiState.addingIngredient) break;
         const name = uiState.addingIngredient.name.trim();
@@ -126,8 +137,9 @@ function attachEvents() {
           name,
           category: uiState.addingIngredient.category,
           acceptedLabel: uiState.addingIngredient.acceptedLabel,
+          quantity: uiState.addingIngredient.quantity,
+          used: 0,
           note: "",
-          stockStatus: "in-stock",
         };
         uiState.addingIngredient = null;
         commit(addIngredient(state, newIngredient), `${name} 已加入库存`);
@@ -146,8 +158,32 @@ function attachEvents() {
         break;
       case "close-schedule-recipe":
         uiState.schedulingRecipeId = null;
+        uiState.schedulingSlot = null;
         render();
         break;
+      case "clear-meal-slot":
+        commit(
+          replaceMealRecipe(state, actionTarget.dataset.date, actionTarget.dataset.slot, null),
+          "已移除"
+        );
+        break;
+      case "open-schedule-for-slot":
+        uiState.schedulingSlot = { date: actionTarget.dataset.date, slot: actionTarget.dataset.slot };
+        render();
+        break;
+      case "close-slot-picker":
+        uiState.schedulingSlot = null;
+        render();
+        break;
+      case "select-recipe-for-slot": {
+        const { date, slot } = uiState.schedulingSlot;
+        uiState.schedulingSlot = null;
+        commit(
+          replaceMealRecipe(state, date, slot, actionTarget.dataset.recipeId),
+          "已放入计划"
+        );
+        break;
+      }
       case "schedule-recipe":
         uiState.schedulingRecipeId = null;
         commit(
@@ -156,31 +192,18 @@ function attachEvents() {
         );
         break;
       case "open-recipe-creator":
-        uiState.creatingRecipe = { slot: "lunch", ingredientIds: [] };
+        uiState.creatingRecipe = { ingredientIds: [], pickingTime: false };
         render();
         break;
       case "add-suggested-recipe": {
         const ingredientIds = actionTarget.dataset.ingredientIds.split(",").filter(Boolean);
-        const slot = actionTarget.dataset.slot;
-        const newRecipe = {
-          id: `custom-${Date.now()}`,
-          name: buildRecipeName(ingredientIds),
-          stageLabel: "9-12个月",
-          slots: [slot],
-          ingredientIds,
-        };
-        commit(addRecipe(state, newRecipe), "菜谱已加入");
+        uiState.creatingRecipe = { ingredientIds, pickingTime: true };
+        render();
         break;
       }
       case "close-recipe-creator":
         uiState.creatingRecipe = null;
         render();
-        break;
-      case "toggle-creator-slot":
-        if (uiState.creatingRecipe) {
-          uiState.creatingRecipe.slot = actionTarget.dataset.slot;
-          render();
-        }
         break;
       case "toggle-creator-ingredient": {
         if (!uiState.creatingRecipe) break;
@@ -194,7 +217,30 @@ function attachEvents() {
       }
       case "save-recipe": {
         if (!uiState.creatingRecipe) break;
-        const { slot, ingredientIds } = uiState.creatingRecipe;
+        if (uiState.creatingRecipe.replaceSlot) {
+          const { ingredientIds, replaceSlot } = uiState.creatingRecipe;
+          const { date, slot } = replaceSlot;
+          const newRecipe = {
+            id: `custom-${Date.now()}`,
+            name: buildRecipeName(ingredientIds),
+            stageLabel: "9-12个月",
+            slots: [slot],
+            ingredientIds,
+          };
+          uiState.creatingRecipe = null;
+          const s1 = addRecipe(state, newRecipe);
+          commit(replaceMealRecipe(s1, date, slot, newRecipe.id), "菜谱已更新");
+        } else {
+          uiState.creatingRecipe.pickingTime = true;
+          render();
+        }
+        break;
+      }
+      case "confirm-recipe-time": {
+        if (!uiState.creatingRecipe) break;
+        const { ingredientIds } = uiState.creatingRecipe;
+        const date = actionTarget.dataset.date;
+        const slot = actionTarget.dataset.slot;
         const newRecipe = {
           id: `custom-${Date.now()}`,
           name: buildRecipeName(ingredientIds),
@@ -203,9 +249,13 @@ function attachEvents() {
           ingredientIds,
         };
         uiState.creatingRecipe = null;
-        commit(addRecipe(state, newRecipe), "菜谱已保存");
+        const s1 = addRecipe(state, newRecipe);
+        commit(replaceMealRecipe(s1, date, slot, newRecipe.id), "菜谱已保存并加入计划");
         break;
       }
+      case "complete-meal":
+        commit(toggleMealCompleted(state, actionTarget.dataset.date, actionTarget.dataset.slot), "已标记完成");
+        break;
       case "delete-recipe":
         commit(deleteRecipe(state, actionTarget.dataset.recipeId), "菜谱已删除");
         break;
@@ -265,6 +315,40 @@ function attachEvents() {
           "库存状态已更新",
         );
         break;
+      case "use-ingredient":
+        commit(useIngredient(state, actionTarget.dataset.ingredientId), "库存已更新");
+        break;
+      case "open-buy-quantity":
+        uiState.buyingIngredientId = actionTarget.dataset.ingredientId;
+        render();
+        break;
+      case "close-buy-quantity":
+        uiState.buyingIngredientId = null;
+        render();
+        break;
+      case "confirm-buy-quantity":
+        commit(
+          resetIngredient(state, actionTarget.dataset.ingredientId, parseInt(actionTarget.dataset.quantity, 10)),
+          "已加入库存"
+        );
+        uiState.buyingIngredientId = null;
+        render();
+        break;
+      case "open-edit-ingredient":
+        uiState.editingIngredientId = actionTarget.dataset.ingredientId;
+        render();
+        break;
+      case "close-edit-ingredient":
+        uiState.editingIngredientId = null;
+        render();
+        break;
+      case "reset-ingredient": {
+        const qty = parseInt(actionTarget.dataset.quantity, 10);
+        commit(resetIngredient(state, uiState.editingIngredientId, qty), "已重置");
+        uiState.editingIngredientId = null;
+        render();
+        break;
+      }
       case "set-filter":
         uiState.recipeFilter = actionTarget.dataset.filter;
         render();
@@ -317,6 +401,46 @@ function attachEvents() {
       );
     }
   });
+
+  // Long press detection for ingredient cards
+  let longPressTimer = null;
+  let longPressFired = false;
+  root.addEventListener("pointerdown", (event) => {
+    const ingCard = event.target.closest("[data-longpress-ingredient]");
+    const planCard = event.target.closest("[data-longpress-plan]");
+    const card = ingCard || planCard;
+    if (!card) return;
+    longPressFired = false;
+    longPressTimer = setTimeout(() => {
+      longPressTimer = null;
+      longPressFired = true;
+      if (ingCard) {
+        uiState.editingIngredientId = card.dataset.longpressIngredient;
+      } else {
+        uiState.creatingRecipe = {
+          ingredientIds: [],
+          pickingTime: false,
+          replaceSlot: { date: card.dataset.longpressDate, slot: card.dataset.longpressSlot },
+        };
+      }
+      render();
+    }, 500);
+  });
+  root.addEventListener("pointerup", () => {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  });
+  root.addEventListener("pointermove", () => {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  });
+  root.addEventListener("pointercancel", () => {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  });
+  root.addEventListener("click", (event) => {
+    if (longPressFired) {
+      longPressFired = false;
+      event.stopImmediatePropagation();
+    }
+  }, true);
 
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault();
@@ -628,10 +752,14 @@ function announce(message) {
 }
 
 function render() {
-  if (cloudState.enabled && (!cloudState.session || cloudState.status === "checking" || cloudState.status === "sending")) {
-    root.innerHTML = renderAuthShell();
-    return;
-  }
+  // 共享登录暂时跳过
+  // if (cloudState.enabled && (!cloudState.session || cloudState.status === "checking" || cloudState.status === "sending")) {
+  //   root.innerHTML = renderAuthShell();
+  //   return;
+  // }
+
+  const prevDrawerScroll = root.querySelector(".drawer-body")?.scrollTop ?? 0;
+  const drawerWasOpen = !!root.querySelector(".drawer");
 
   document.body.dataset.tab = uiState.activeTab;
   const today = getTodayKey();
@@ -655,8 +783,19 @@ function render() {
     ${uiState.editingRecipeId ? renderIngredientDrawer(uiState.editingRecipeId) : ""}
     ${uiState.creatingRecipe ? renderRecipeCreatorDrawer() : ""}
     ${uiState.addingIngredient ? renderAddIngredientDrawer() : ""}
+    ${uiState.editingIngredientId ? renderEditIngredientDrawer(uiState.editingIngredientId) : ""}
     ${uiState.schedulingRecipeId ? renderScheduleDrawer(uiState.schedulingRecipeId) : ""}
+    ${uiState.schedulingSlot ? renderSlotRecipePickerDrawer(uiState.schedulingSlot) : ""}
   `;
+
+  const drawer = root.querySelector(".drawer");
+  if (drawer) {
+    if (!drawerWasOpen) drawer.classList.add("is-opening");
+    if (prevDrawerScroll > 0) {
+      const drawerBody = drawer.querySelector(".drawer-body");
+      if (drawerBody) drawerBody.scrollTop = prevDrawerScroll;
+    }
+  }
 }
 
 function renderAuthShell() {
@@ -717,9 +856,8 @@ function renderCurrentPage(snapshot, today) {
       return renderLibraryPage(today);
     case "settings":
       return renderSettingsPage();
-    case "today":
     default:
-      return renderTodayPage(snapshot, today);
+      return renderLibraryPage();
   }
 }
 
@@ -855,7 +993,7 @@ function renderHistoryDay(day) {
       </div>
       <div class="history-meals card-grid">
         ${day.meals
-          .filter((meal) => meal.completed)
+          .filter((meal) => meal.completed && meal.recipe)
           .map(
             (meal) => `
               <article class="history-item compact-tile">
@@ -863,8 +1001,14 @@ function renderHistoryDay(day) {
                   <span class="badge hot">${meal.slotLabel}</span>
                   <span class="status-pill completed">已打卡</span>
                 </div>
-                <p class="history-title">${meal.recipe.name}</p>
-                <p class="history-note">${meal.note || meal.recipe.highlight}</p>
+                <p class="history-title">${escapeHtml(meal.recipe.name)}</p>
+                <div class="pill-row" style="margin-top:4px;">
+                  ${(meal.recipe.ingredientIds || [])
+                    .map((id) => state.ingredients.find((i) => i.id === id))
+                    .filter(Boolean)
+                    .map((ing) => renderIngredientPill(ing))
+                    .join("")}
+                </div>
               </article>
             `,
           )
@@ -882,9 +1026,8 @@ function renderHistoryIngredient(ingredient) {
           <p class="ingredient-name">${ingredient.name}</p>
           <p class="history-note">${ingredient.category} · ${ingredient.acceptedLabel}</p>
         </div>
-        <span class="status-pill stock-${ingredient.stockStatus}">${stockLabel(ingredient.stockStatus)}</span>
       </div>
-      <p class="ingredient-note">最近一次出现在 ${formatShortDate(ingredient.lastSeenOn)} 的「${ingredient.seenInRecipe}」里。</p>
+      <p class="ingredient-note">最近出现在 ${formatShortDate(ingredient.lastSeenOn)} 的「${escapeHtml(ingredient.seenInRecipe)}」里。</p>
     </article>
   `;
 }
@@ -921,19 +1064,23 @@ function renderCategoryPicker() {
             ? state.ingredients
                 .filter((ing) => ing.category === open)
                 .map((ing) => {
-                  const hasStock = ing.stockStatus === "in-stock";
+                  const qty = ing.quantity ?? 1;
+                  const used = ing.used ?? 0;
+                  const remaining = qty - used;
+                  const hasStock = remaining > 0;
+                  const statusText = hasStock ? `${remaining}/${qty}` : "没有";
                   return `
                     <div
                       class="ingredient-toggle-card ${hasStock ? "is-stocked" : ""}"
-                      data-action="set-stock"
+                      data-action="use-ingredient"
                       data-ingredient-id="${ing.id}"
-                      data-stock="${hasStock ? "missing" : "in-stock"}"
+                      data-longpress-ingredient="${ing.id}"
                       role="button"
                       tabindex="0"
                     >
                       <span class="ingredient-toggle-name">${escapeHtml(ing.name)}</span>
                       <span class="ingredient-toggle-label">${ing.acceptedLabel}</span>
-                      <span class="ingredient-toggle-status">${hasStock ? "有" : "没有"}</span>
+                      <span class="ingredient-toggle-status${hasStock ? "" : " is-empty"}">${statusText}</span>
                     </div>
                   `;
                 }).join("")
@@ -946,9 +1093,10 @@ function renderCategoryPicker() {
 }
 
 function renderAddIngredientDrawer() {
-  const { name, category, acceptedLabel } = uiState.addingIngredient;
+  const { name, category, acceptedLabel, quantity } = uiState.addingIngredient;
   const categories = ["蛋白质", "蔬菜", "主食"];
   const accepted = ["爱吃", "一般"];
+  const quantities = [1, 2, 3, 4, 5];
 
   return `
     <div class="drawer-overlay" data-action="close-add-ingredient" role="button" aria-label="关闭"></div>
@@ -998,6 +1146,19 @@ function renderAddIngredientDrawer() {
             `).join("")}
           </div>
         </div>
+        <div class="drawer-group">
+          <p class="drawer-group-label">数量</p>
+          <div class="filter-row">
+            ${quantities.map((q) => `
+              <button
+                class="filter-button drawer-filter-button ${quantity === q ? "active" : ""}"
+                data-action="set-ingredient-quantity"
+                data-quantity="${q}"
+                type="button"
+              >${q}</button>
+            `).join("")}
+          </div>
+        </div>
       </div>
       <div style="padding:12px 16px 16px;">
         <button
@@ -1006,6 +1167,49 @@ function renderAddIngredientDrawer() {
           type="button"
           style="width:100%;"
         >加入库存</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderEditIngredientDrawer(ingredientId) {
+  const ing = state.ingredients.find((i) => i.id === ingredientId);
+  if (!ing) return "";
+  const qty = ing.quantity ?? 1;
+  const quantities = [1, 2, 3, 4, 5];
+  return `
+    <div class="drawer-overlay" data-action="close-edit-ingredient" role="button" aria-label="关闭"></div>
+    <div class="drawer">
+      <div class="drawer-header">
+        <div>
+          <p class="section-overline">Edit Stock</p>
+          <h3 class="section-title">${escapeHtml(ing.name)}</h3>
+        </div>
+        <button class="ghost-button" data-action="close-edit-ingredient" type="button">取消</button>
+      </div>
+      <div class="drawer-body">
+        <div class="drawer-group">
+          <p class="drawer-group-label">修改数量</p>
+          <div class="filter-row">
+            ${quantities.map((q) => `
+              <button
+                class="filter-button drawer-filter-button ${qty === q ? "active" : ""}"
+                data-action="reset-ingredient"
+                data-quantity="${q}"
+                type="button"
+              >${q}</button>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+      <div style="padding:12px 16px 16px;">
+        <button
+          class="primary-button"
+          data-action="reset-ingredient"
+          data-quantity="${qty}"
+          type="button"
+          style="width:100%;"
+        >重置（恢复 ${qty}/${qty}）</button>
       </div>
     </div>
   `;
@@ -1061,8 +1265,53 @@ function renderScheduleDrawer(recipeId) {
   `;
 }
 
+function renderSlotRecipePickerDrawer({ date, slot }) {
+  const slotLabel = slot === "lunch" ? "午餐" : "晚餐";
+  const recipes = state.recipes;
+  return `
+    <div class="drawer-overlay" data-action="close-slot-picker" role="button" aria-label="关闭"></div>
+    <div class="drawer is-opening">
+      <div class="drawer-header">
+        <div>
+          <p class="section-overline">选择菜谱</p>
+          <h3 class="section-title">${formatShortDate(date)} ${slotLabel}</h3>
+        </div>
+        <button class="ghost-button" data-action="close-slot-picker" type="button">取消</button>
+      </div>
+      <div class="drawer-body">
+        ${recipes.length ? `
+          <div class="inventory-list">
+            ${recipes.map((r) => {
+              const ings = r.ingredientIds
+                .map((id) => state.ingredients.find((i) => i.id === id))
+                .filter(Boolean)
+                .map((i) => i.name).join("·");
+              return `
+                <div
+                  class="inventory-row"
+                  data-action="select-recipe-for-slot"
+                  data-recipe-id="${r.id}"
+                  role="button"
+                  tabindex="0"
+                >
+                  <span class="inventory-row-name">${escapeHtml(r.name)}</span>
+                  <span class="inventory-row-meta">${escapeHtml(ings)}</span>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        ` : `<p class="empty-state">还没有${slotLabel}菜谱，先新建一个。</p>`}
+      </div>
+    </div>
+  `;
+}
+
 function renderBuyPage() {
-  const missingItems = state.ingredients.filter((i) => i.stockStatus === "missing");
+  const missingItems = state.ingredients.filter((i) => {
+    const qty = i.quantity ?? 1;
+    const used = i.used ?? 0;
+    return (qty - used) <= 0;
+  });
 
   return `
     <section class="dashboard-board">
@@ -1071,35 +1320,67 @@ function renderBuyPage() {
           <div class="shopping-header">
             <div>
               <p class="section-overline">Buy List</p>
-              <h3 class="section-title">待买清单</h3>
+              <h3 class="section-title">待采购</h3>
             </div>
             <span class="badge hot">${missingItems.length} 项</span>
           </div>
           ${
             missingItems.length
               ? `<div class="inventory-list">${missingItems.map((ing) => `
-                  <div class="shopping-row">
-                    <div class="shopping-top">
-                      <div class="shopping-info">
-                        <p class="shopping-title">${escapeHtml(ing.name)}</p>
-                        <p class="helper-copy">${ing.category} · ${ing.acceptedLabel}</p>
-                      </div>
-                      <button
-                        class="primary-button"
-                        data-action="set-stock"
-                        data-ingredient-id="${ing.id}"
-                        data-stock="in-stock"
-                        type="button"
-                        style="flex-shrink:0;"
-                      >买到了</button>
+                  <div
+                    class="inventory-row buy-item"
+                    data-action="open-buy-quantity"
+                    data-ingredient-id="${ing.id}"
+                    role="button"
+                    tabindex="0"
+                  >
+                    <div class="inventory-row-left">
+                      <span class="inventory-row-name">${escapeHtml(ing.name)}</span>
+                      <span class="inventory-row-meta">${ing.category} · ${ing.acceptedLabel}</span>
                     </div>
+                    <span class="buy-item-hint">选数量 →</span>
                   </div>
                 `).join("")}</div>`
-              : `<div class="empty-state">库存齐全，没有待买食材。</div>`
+              : `<div class="empty-state">库存充足，没有待采购食材。</div>`
           }
         </section>
       </section>
     </section>
+    ${uiState.buyingIngredientId ? renderBuyQuantityDrawer(uiState.buyingIngredientId) : ""}
+  `;
+}
+
+function renderBuyQuantityDrawer(ingredientId) {
+  const ing = state.ingredients.find((i) => i.id === ingredientId);
+  if (!ing) return "";
+  const quantities = [1, 2, 3, 4, 5];
+  return `
+    <div class="drawer-overlay" data-action="close-buy-quantity" role="button" aria-label="关闭"></div>
+    <div class="drawer is-opening">
+      <div class="drawer-header">
+        <div>
+          <p class="section-overline">Buy</p>
+          <h3 class="section-title">${escapeHtml(ing.name)}</h3>
+        </div>
+        <button class="ghost-button" data-action="close-buy-quantity" type="button">取消</button>
+      </div>
+      <div class="drawer-body">
+        <div class="drawer-group">
+          <p class="drawer-group-label">买了几个？</p>
+          <div class="filter-row">
+            ${quantities.map((q) => `
+              <button
+                class="filter-button drawer-filter-button"
+                data-action="confirm-buy-quantity"
+                data-ingredient-id="${ingredientId}"
+                data-quantity="${q}"
+                type="button"
+              >${q}</button>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -1114,7 +1395,6 @@ function renderInventoryPage() {
             <p class="section-overline">Stock Status</p>
             <h3 class="section-title">我的库存</h3>
           </div>
-          <span class="badge sage">${state.ingredients.filter((i) => i.stockStatus === "in-stock").length} 有货</span>
         </div>
         ${categories.map((cat) => {
           const ings = state.ingredients.filter((i) => i.category === cat);
@@ -1124,13 +1404,17 @@ function renderInventoryPage() {
               <p class="drawer-group-label"><span class="badge ${categoryClass(cat)}">${cat}</span></p>
               <div class="ingredient-toggle-grid">
                 ${ings.map((ing) => {
-                  const hasStock = ing.stockStatus === "in-stock";
+                  const qty = ing.quantity ?? 1;
+                  const used = ing.used ?? 0;
+                  const remaining = qty - used;
+                  const hasStock = remaining > 0;
+                  const statusText = hasStock ? `${remaining}/${qty}` : "没有";
                   return `
                     <div
                       class="ingredient-toggle-card with-remove ${hasStock ? "is-stocked " + categoryClass(cat) : ""}"
-                      data-action="set-stock"
+                      data-action="use-ingredient"
                       data-ingredient-id="${ing.id}"
-                      data-stock="${hasStock ? "missing" : "in-stock"}"
+                      data-longpress-ingredient="${ing.id}"
                       role="button"
                       tabindex="0"
                     >
@@ -1143,7 +1427,7 @@ function renderInventoryPage() {
                       >x</button>
                       <span class="ingredient-toggle-name">${escapeHtml(ing.name)}</span>
                       <span class="ingredient-toggle-label">${ing.acceptedLabel}</span>
-                      <span class="ingredient-toggle-status">${hasStock ? "有" : "没有"}</span>
+                      <span class="ingredient-toggle-status${hasStock ? "" : " is-empty"}">${statusText}</span>
                     </div>
                   `;
                 }).join("")}
@@ -1236,54 +1520,96 @@ function renderInventoryRow(ingredient) {
 }
 
 function renderLibraryPage() {
-  const recipes = state.recipes.filter((recipe) => {
-    if (uiState.recipeFilter === "all") return true;
-    return recipe.slots.includes(uiState.recipeFilter);
-  });
+  const today = getTodayKey();
+  const tomorrow = (() => {
+    const [y, m, d] = today.split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + 1);
+    return dt.toISOString().slice(0, 10);
+  })();
 
   return `
     <section class="dashboard-board">
       <section class="panel-card compact-card">
-        <div class="header-row">
-          <div class="filter-row">
-            ${[
-              ["all", "全部"],
-              ["lunch", "午餐"],
-              ["dinner", "晚餐"],
-            ]
-              .map(
-                ([filter, label]) => `
-                  <button
-                    class="filter-button ${uiState.recipeFilter === filter ? "active" : ""}"
-                    data-action="set-filter"
-                    data-filter="${filter}"
-                    type="button"
-                  >${label}</button>
-                `,
-              )
-              .join("")}
+        <div class="header-row" style="align-items:center;">
+          <div>
+            <p class="section-overline">Today &amp; Tomorrow</p>
+            <h3 class="section-title">饮食计划</h3>
           </div>
           <button class="primary-button" data-action="open-recipe-creator" type="button">+ 新建菜谱</button>
         </div>
       </section>
       <section class="content-board library-board">
         ${renderSuggestedRecipes()}
-        <section class="panel-card compact-card wide-card">
-          <div class="header-row">
-            <div>
-              <p class="section-overline">Recipe Cards</p>
-              <h3 class="section-title">我的菜谱</h3>
-            </div>
-            <span class="badge">${recipes.length} 道</span>
-          </div>
-          ${
-            recipes.length
-              ? `<div class="recipe-list">${recipes.map((recipe) => renderRecipeCard(recipe)).join("")}</div>`
-              : `<div class="empty-state">还没有菜谱，先在采购页把买到的食材加入库存，再新建菜谱。</div>`
-          }
-        </section>
+        ${renderDayPlanCard(today, "今天")}
+        ${renderDayPlanCard(tomorrow, "明天")}
       </section>
     </section>
+  `;
+}
+
+function renderDayPlanCard(date, dayLabel) {
+  const lunch = getMealViewModel(state, date, "lunch");
+  const dinner = getMealViewModel(state, date, "dinner");
+  return `
+    <section class="panel-card compact-card wide-card">
+      <div class="header-row" style="margin-bottom:12px;">
+        <h3 class="section-title">${dayLabel}</h3>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${renderMealSlotCard(date, "lunch", "午餐", lunch)}
+        ${renderMealSlotCard(date, "dinner", "晚餐", dinner)}
+      </div>
+    </section>
+  `;
+}
+
+function renderMealSlotCard(date, slot, slotLabel, meal) {
+  if (!meal) {
+    return `
+      <div class="meal-slot-empty">
+        <span class="meal-slot-empty-label">${slotLabel}</span>
+        <span class="meal-slot-empty-hint">暂未安排</span>
+      </div>
+    `;
+  }
+
+  const ingredients = meal.ingredients;
+  const recipe = meal.recipe;
+  const isLunch = slot === "lunch";
+  const completed = meal.completed;
+
+  return `
+    <article
+      class="plan-recipe-card ${completed ? "is-completed" : ""}"
+      data-longpress-plan="${recipe.id}"
+      data-longpress-date="${date}"
+      data-longpress-slot="${slot}"
+    >
+      <div class="plan-recipe-actions">
+        <button
+          class="plan-recipe-complete ${completed ? "done" : ""}"
+          data-action="complete-meal"
+          data-date="${date}"
+          data-slot="${slot}"
+          type="button"
+          aria-label="标记完成"
+        >✓</button>
+        <button
+          class="plan-recipe-remove"
+          data-action="clear-meal-slot"
+          data-date="${date}"
+          data-slot="${slot}"
+          type="button"
+          aria-label="移除"
+        >×</button>
+      </div>
+      <p class="recipe-name">${escapeHtml(recipe.name)}</p>
+      <div class="pill-row" style="margin-top:6px;">
+        ${ingredients.map((ing) => renderIngredientPill(ing)).join("")}
+      </div>
+      <span class="plan-recipe-slot-badge badge ${isLunch ? "hot" : "sage"}">${slotLabel}</span>
+    </article>
   `;
 }
 
@@ -1401,17 +1727,64 @@ function buildRecipeName(ingredientIds) {
   const ings = ingredientIds
     .map((id) => state.ingredients.find((i) => i.id === id))
     .filter(Boolean);
-  const protein = ings.find((i) => i.category === "蛋白质")?.name ?? "";
-  const veg = ings.find((i) => i.category === "蔬菜")?.name ?? "";
-  const staple = ings.find((i) => i.category === "主食")?.name ?? "";
-  return [protein, veg, staple].filter(Boolean).join("") || "新菜谱";
+  return ings.map((i) => i.name).join("·") || "新菜谱";
 }
 
 function renderRecipeCreatorDrawer() {
-  const { slot, ingredientIds } = uiState.creatingRecipe;
-  const categories = ["蛋白质", "蔬菜", "主食"];
-  const stockedIngredients = state.ingredients.filter((i) => i.stockStatus !== "missing");
+  const { ingredientIds, pickingTime } = uiState.creatingRecipe;
   const previewName = buildRecipeName(ingredientIds);
+
+  if (pickingTime) {
+    const today = getTodayKey();
+    const tomorrow = (() => {
+      const [y, m, d] = today.split("-").map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      dt.setUTCDate(dt.getUTCDate() + 1);
+      return dt.toISOString().slice(0, 10);
+    })();
+    const timeSlots = [
+      { date: today,    slot: "lunch",  label: "今天午餐" },
+      { date: today,    slot: "dinner", label: "今天晚餐" },
+      { date: tomorrow, slot: "lunch",  label: "明天午餐" },
+      { date: tomorrow, slot: "dinner", label: "明天晚餐" },
+    ];
+    return `
+      <div class="drawer-overlay" data-action="close-recipe-creator" role="button" aria-label="关闭"></div>
+      <div class="drawer is-opening">
+        <div class="drawer-header">
+          <div>
+            <p class="section-overline">选择时间</p>
+            <h3 class="section-title">${escapeHtml(previewName)}</h3>
+          </div>
+          <button class="ghost-button" data-action="close-recipe-creator" type="button">取消</button>
+        </div>
+        <div class="drawer-body">
+          <div class="inventory-list">
+            ${timeSlots.map(({ date, slot, label }) => `
+              <div
+                class="inventory-row"
+                data-action="confirm-recipe-time"
+                data-date="${date}"
+                data-slot="${slot}"
+                role="button"
+                tabindex="0"
+              >
+                <span class="inventory-row-name">${label}</span>
+                <span class="inventory-row-meta">${formatShortDate(date)}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const categories = ["蛋白质", "蔬菜", "主食"];
+  const stockedIngredients = state.ingredients.filter((i) => {
+    const qty = i.quantity ?? 1;
+    const used = i.used ?? 0;
+    return i.stockStatus ? i.stockStatus === "in-stock" : (qty - used) > 0;
+  });
 
   return `
     <div class="drawer-overlay" data-action="close-recipe-creator" role="button" aria-label="关闭"></div>
@@ -1424,19 +1797,6 @@ function renderRecipeCreatorDrawer() {
         <button class="ghost-button" data-action="close-recipe-creator" type="button">取消</button>
       </div>
       <div class="drawer-body">
-        <div class="drawer-group">
-          <p class="drawer-group-label">槽位</p>
-          <div class="filter-row">
-            ${[["lunch", "午餐"], ["dinner", "晚餐"]].map(([s, label]) => `
-              <button
-                class="filter-button ${slot === s ? "active" : ""}"
-                data-action="toggle-creator-slot"
-                data-slot="${s}"
-                type="button"
-              >${label}</button>
-            `).join("")}
-          </div>
-        </div>
         ${categories.map((cat) => {
           const catIngredients = stockedIngredients.filter((i) => i.category === cat);
           if (!catIngredients.length) return "";
@@ -1468,7 +1828,7 @@ function renderRecipeCreatorDrawer() {
             </div>
           `;
         }).join("")}
-        ${!stockedIngredients.length ? `<p class="empty-state">先在采购页把买到的食材标为有货。</p>` : ""}
+        ${!stockedIngredients.length ? `<p class="empty-state">先在库存页添加食材。</p>` : ""}
       </div>
       <div style="padding: 12px 16px 16px;">
         <button
@@ -1681,12 +2041,10 @@ function renderSummaryCard(label, value, tone = "plain") {
 
 function renderBottomNav() {
   const items = [
-    ["today", "今日"],
+    ["library", "计划"],
     ["history", "记录"],
     ["inventory", "库存"],
-    ["library", "菜谱"],
     ["buy", "采购"],
-    ["settings", "设置"],
   ];
 
   return `

@@ -324,6 +324,26 @@ export function updateIngredientStock(state, ingredientId, stockStatus) {
   return nextState;
 }
 
+export function useIngredient(state, ingredientId) {
+  const nextState = cloneState(state);
+  const ingredient = nextState.ingredients.find((item) => item.id === ingredientId);
+  if (!ingredient) return state;
+  const used = ingredient.used ?? 0;
+  const quantity = ingredient.quantity ?? 1;
+  if (used >= quantity) return state;
+  ingredient.used = used + 1;
+  return nextState;
+}
+
+export function resetIngredient(state, ingredientId, quantity) {
+  const nextState = cloneState(state);
+  const ingredient = nextState.ingredients.find((item) => item.id === ingredientId);
+  if (!ingredient) return state;
+  ingredient.used = 0;
+  if (quantity !== undefined) ingredient.quantity = quantity;
+  return nextState;
+}
+
 export function addIngredient(state, ingredient) {
   const nextState = cloneState(state);
   nextState.ingredients.push(ingredient);
@@ -448,7 +468,13 @@ export function buildShoppingList(state, { from, days = 3 }) {
       recipe.ingredientIds.forEach((ingredientId) => {
         const ingredient = ingredientMap.get(ingredientId);
 
-        if (!ingredient || ingredient.stockStatus === "in-stock") {
+        const qty = ingredient.quantity ?? 1;
+        const used = ingredient.used ?? 0;
+        const remaining = qty - used;
+        const hasStock = ingredient.stockStatus
+          ? ingredient.stockStatus === "in-stock"
+          : remaining > 0;
+        if (!ingredient || hasStock) {
           return;
         }
 
@@ -456,7 +482,7 @@ export function buildShoppingList(state, { from, days = 3 }) {
           items.set(ingredientId, {
             ingredientId,
             ingredientName: ingredient.name,
-            stockStatus: ingredient.stockStatus,
+            stockStatus: remaining > 0 ? "in-stock" : "missing",
             checked: state.shoppingChecks[ingredientId] ?? false,
             sources: [],
           });
