@@ -271,6 +271,16 @@ function attachEvents() {
           }
         }
         commit(nextState, wasCompleted ? "已取消完成" : "已标记完成");
+        // 标记完成时触发一次性动效
+        if (!wasCompleted) {
+          const card = root.querySelector(
+            `[data-longpress-date="${mealDate}"][data-longpress-slot="${mealSlot}"]`
+          );
+          if (card) {
+            card.classList.add("flash-complete");
+            card.addEventListener("animationend", () => card.classList.remove("flash-complete"), { once: true });
+          }
+        }
         break;
       }
       case "delete-recipe":
