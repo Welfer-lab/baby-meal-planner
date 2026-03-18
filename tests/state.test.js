@@ -140,7 +140,7 @@ test("styles include iphone 14 pro max viewport sizing and safe-area layout rule
 test("service worker uses a fresh cache version and network-first for app shell files", () => {
   const source = readFileSync(new URL("../service-worker.js", import.meta.url), "utf8");
 
-  assert.equal(source.includes('baby-meal-planner-v2'), true);
+  assert.equal(source.includes('baby-meal-planner-v5'), true);
   assert.equal(source.includes("NETWORK_FIRST_PATHS"), true);
   assert.equal(source.includes('url.pathname === "/"'), true);
 });

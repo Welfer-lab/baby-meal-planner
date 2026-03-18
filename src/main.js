@@ -18,6 +18,7 @@ import {
   replaceMealRecipe,
   updateRecipeIngredients,
 } from "./state.js";
+import { LONG_PRESS_DELAY_MS, movedBeyondLongPressTolerance } from "./longpress.js";
 import { isSupabaseEnabled, runtimeConfig } from "./runtime-config.js";
 
 const STORAGE_KEY = "baby-meal-planner-state-v1";
@@ -405,15 +406,34 @@ function attachEvents() {
   // Long press detection for ingredient cards
   let longPressTimer = null;
   let longPressFired = false;
+  let longPressStartPoint = null;
+  let longPressPointerId = null;
+  const clearLongPress = (pointerId = null) => {
+    if (pointerId !== null && longPressPointerId !== null && pointerId !== longPressPointerId) {
+      return;
+    }
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+    longPressStartPoint = null;
+    longPressPointerId = null;
+  };
   root.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
     const ingCard = event.target.closest("[data-longpress-ingredient]");
     const planCard = event.target.closest("[data-longpress-plan]");
     const card = ingCard || planCard;
     if (!card) return;
+    clearLongPress();
     longPressFired = false;
+    longPressPointerId = event.pointerId;
+    longPressStartPoint = { x: event.clientX, y: event.clientY };
     longPressTimer = setTimeout(() => {
       longPressTimer = null;
       longPressFired = true;
+      longPressStartPoint = null;
+      longPressPointerId = null;
       if (ingCard) {
         uiState.editingIngredientId = card.dataset.longpressIngredient;
       } else {
@@ -424,16 +444,25 @@ function attachEvents() {
         };
       }
       render();
-    }, 500);
+    }, LONG_PRESS_DELAY_MS);
   });
-  root.addEventListener("pointerup", () => {
-    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  root.addEventListener("pointerup", (event) => {
+    clearLongPress(event.pointerId);
   });
-  root.addEventListener("pointermove", () => {
-    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  root.addEventListener("pointermove", (event) => {
+    if (!longPressTimer || !longPressStartPoint) return;
+    if (longPressPointerId !== null && event.pointerId !== longPressPointerId) return;
+    if (
+      movedBeyondLongPressTolerance(longPressStartPoint, {
+        x: event.clientX,
+        y: event.clientY,
+      })
+    ) {
+      clearLongPress(event.pointerId);
+    }
   });
-  root.addEventListener("pointercancel", () => {
-    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  root.addEventListener("pointercancel", (event) => {
+    clearLongPress(event.pointerId);
   });
   root.addEventListener("click", (event) => {
     if (longPressFired) {
