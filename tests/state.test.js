@@ -124,6 +124,31 @@ test("ensurePlanWindow keeps history and appends new future plans when today mov
   assert.ok(updated.plans.find((plan) => plan.date === "2026-03-20"));
 });
 
+test("dashboard ingredient stats count completed ingredients across the last seven days without extending the history list", () => {
+  let state = createSeedState("2026-03-10");
+
+  ["2026-03-11", "2026-03-12", "2026-03-13", "2026-03-14", "2026-03-15", "2026-03-16"].forEach((date) => {
+    state = ensurePlanWindow(state, date);
+  });
+
+  state = replaceMealRecipe(state, "2026-03-16", "lunch", "chicken-broccoli-rice");
+  state = toggleMealCompleted(state, "2026-03-10", "lunch");
+  state = toggleMealCompleted(state, "2026-03-16", "lunch");
+
+  const snapshot = getDashboardSnapshot(state, "2026-03-16");
+  const chicken = snapshot.ingredientStats.find((item) => item.ingredientId === "chicken");
+  const broccoli = snapshot.ingredientStats.find((item) => item.ingredientId === "broccoli");
+  const rice = snapshot.ingredientStats.find((item) => item.ingredientId === "rice");
+
+  assert.equal(snapshot.historyDays.some((day) => day.date === "2026-03-10"), false);
+  assert.ok(chicken);
+  assert.ok(broccoli);
+  assert.ok(rice);
+  assert.equal(chicken.count, 2);
+  assert.equal(broccoli.count, 2);
+  assert.equal(rice.count, 2);
+});
+
 test("deleteIngredient removes the ingredient from recipes so meal plans stay renderable", () => {
   const state = createSeedState("2026-03-15");
   const updated = deleteIngredient(state, "salmon");
@@ -170,6 +195,13 @@ test("main page markup and styles use compact card-board layout hooks", () => {
   assert.equal(stylesheet.includes(".dashboard-board"), true);
   assert.equal(stylesheet.includes(".content-board"), true);
   assert.equal(stylesheet.includes(".summary-strip"), true);
+});
+
+test("history page includes a top seven-day ingredient stats card", () => {
+  const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+
+  assert.equal(source.includes("Past 7 Days"), true);
+  assert.equal(source.includes("食材频率统计"), true);
 });
 
 test("today meal cards use collapsible detail panels instead of fully expanded long stacks", () => {
@@ -288,13 +320,13 @@ test("pwa app name uses 橙汁开饭啦 for install surfaces", () => {
   assert.equal(html.includes("<title>橙汁开饭啦</title>"), true);
 });
 
-test("supabase runtime config and auth hooks exist for shared magic link login", () => {
+test("supabase runtime config and auth hooks exist for shared login settings", () => {
   const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
   const runtimeConfig = readFileSync(new URL("../src/runtime-config.js", import.meta.url), "utf8");
 
-  assert.equal(source.includes("send-magic-link"), true);
+  assert.equal(source.includes("sign-in-password"), true);
   assert.equal(source.includes("sign-out"), true);
-  assert.equal(source.includes("共享登录"), true);
+  assert.equal(source.includes("共享数据库"), true);
   assert.equal(runtimeConfig.includes("supabaseUrl"), true);
   assert.equal(runtimeConfig.includes("sharedStateId"), true);
 });

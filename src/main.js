@@ -1018,10 +1018,50 @@ function renderQuickShopping(item) {
   `;
 }
 
+function renderIngredientStats(stats) {
+  if (!stats.length) {
+    return "";
+  }
+
+  const catColor = { "主食": "#bbdff4", "蛋白质": "#fcd5ce", "蔬菜": "#b7ddb0" };
+  const catText = { "主食": "#4A6FA5", "蛋白质": "#c0392b", "蔬菜": "#2d6a4f" };
+  const maxCount = stats[0].count;
+
+  return `
+    <section class="panel-card compact-card wide-card">
+      <div class="header-row" style="margin-bottom:12px;">
+        <div>
+          <p class="section-overline">Past 7 Days</p>
+          <h3 class="section-title">食材频率统计</h3>
+        </div>
+        <span class="badge">${stats.length} 种</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${stats.map((item) => {
+          const bg = catColor[item.category] || "#eee";
+          const tc = catText[item.category] || "#666";
+          const pct = Math.round((item.count / maxCount) * 100);
+
+          return `
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:0.78em;font-weight:600;color:${tc};background:${bg};border-radius:6px;padding:2px 7px;min-width:52px;text-align:center;">${escapeHtml(item.ingredientName)}</span>
+              <div style="flex:1;background:#f0f0f0;border-radius:99px;height:8px;overflow:hidden;">
+                <div style="width:${pct}%;background:${bg};border:1.5px solid ${tc};height:100%;border-radius:99px;transition:width 0.4s;"></div>
+              </div>
+              <span style="font-size:0.78em;color:#888;min-width:28px;text-align:right;font-variant-numeric:tabular-nums;">${item.count}次</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function renderHistoryPage(snapshot, today) {
   return `
     <section class="dashboard-board">
       <section class="content-board history-board">
+        ${renderIngredientStats(snapshot.ingredientStats)}
         ${
           snapshot.historyDays.length
             ? snapshot.historyDays.map((day) => renderHistoryDay(day)).join("")

@@ -415,12 +415,12 @@ export function getUpcomingPlans(state, fromDate, days = 3) {
   return state.plans.filter((plan) => plan.date >= fromDate && plan.date <= endDate);
 }
 
-export function getHistoryDays(state, currentDate) {
+function getCompletedHistoryDays(state, currentDate, days) {
   const recipeMap = getRecipeMap(state);
-  const fiveDaysAgo = addDays(currentDate, -4);
+  const startDate = addDays(currentDate, -(days - 1));
 
   return state.plans
-    .filter((plan) => plan.date >= fiveDaysAgo && plan.date <= currentDate && plan.meals.some((meal) => meal.completed))
+    .filter((plan) => plan.date >= startDate && plan.date <= currentDate && plan.meals.some((meal) => meal.completed))
     .map((plan) => ({
       date: plan.date,
       meals: plan.meals.map((meal) => ({
@@ -430,6 +430,10 @@ export function getHistoryDays(state, currentDate) {
       })),
     }))
     .sort((left, right) => right.date.localeCompare(left.date));
+}
+
+export function getHistoryDays(state, currentDate) {
+  return getCompletedHistoryDays(state, currentDate, 5);
 }
 
 export function buildIngredientHistory(state, currentDate) {
@@ -455,6 +459,41 @@ export function buildIngredientHistory(state, currentDate) {
   });
 
   return Array.from(historyMap.values());
+}
+
+function buildIngredientStats(state, currentDate) {
+  const ingredientMap = getIngredientMap(state);
+  const counts = new Map();
+
+  getCompletedHistoryDays(state, currentDate, 7).forEach((day) => {
+    day.meals.forEach((meal) => {
+      if (!meal.completed || !meal.recipe) return;
+
+      meal.recipe.ingredientIds.forEach((ingredientId) => {
+        const ingredient = ingredientMap.get(ingredientId);
+        if (!ingredient) return;
+
+        if (!counts.has(ingredientId)) {
+          counts.set(ingredientId, {
+            ingredientId,
+            ingredientName: ingredient.name,
+            category: ingredient.category,
+            count: 0,
+          });
+        }
+
+        counts.get(ingredientId).count += 1;
+      });
+    });
+  });
+
+  return Array.from(counts.values()).sort((left, right) => {
+    if (right.count !== left.count) {
+      return right.count - left.count;
+    }
+
+    return left.ingredientName.localeCompare(right.ingredientName, "zh-Hans-CN");
+  });
 }
 
 export function buildShoppingList(state, { from, days = 3 }) {
@@ -544,6 +583,7 @@ export function getDashboardSnapshot(state, currentDate) {
     today: getPlan(hydratedState, currentDate),
     upcoming: getUpcomingPlans(hydratedState, currentDate, 3),
     historyDays: getHistoryDays(hydratedState, currentDate),
+    ingredientStats: buildIngredientStats(hydratedState, currentDate),
     ingredientHistory: buildIngredientHistory(hydratedState, currentDate),
     shoppingList: buildShoppingList(hydratedState, { from: currentDate, days: 3 }),
   };
