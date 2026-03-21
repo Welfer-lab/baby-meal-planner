@@ -273,7 +273,7 @@ export function getMealPlan(state, date, slot) {
 }
 
 export function replaceMealRecipe(state, date, slot, recipeId) {
-  const nextState = cloneState(state);
+  let nextState = cloneState(state);
   const plan = getPlan(nextState, date);
 
   if (!plan) {
@@ -285,8 +285,32 @@ export function replaceMealRecipe(state, date, slot, recipeId) {
     return state;
   }
 
+  // 释放旧菜谱的预留（仅未完成的餐次才有预留）
+  if (meal.recipeId && !meal.completed) {
+    const oldRecipe = nextState.recipes.find((r) => r.id === meal.recipeId);
+    if (oldRecipe?.ingredientIds) {
+      nextState = releaseIngredients(nextState, oldRecipe.ingredientIds);
+    }
+  }
+
   meal.recipeId = recipeId;
   meal.completed = false;
+
+  // 预留新菜谱的食材
+  if (recipeId) {
+    const newRecipe = nextState.recipes.find((r) => r.id === recipeId);
+    if (newRecipe?.ingredientIds) {
+      nextState = reserveIngredients(nextState, newRecipe.ingredientIds);
+      // 更新 plan 引用（reserveIngredients 做了 cloneState）
+      const updatedPlan = getPlan(nextState, date);
+      const updatedMeal = updatedPlan?.meals.find((m) => m.slot === slot);
+      if (updatedMeal) {
+        updatedMeal.recipeId = recipeId;
+        updatedMeal.completed = false;
+      }
+    }
+  }
+
   return nextState;
 }
 
@@ -334,6 +358,26 @@ export function useIngredient(state, ingredientId) {
   const quantity = ingredient.quantity ?? 1;
   if (used >= quantity) return state;
   ingredient.used = used + 1;
+  return nextState;
+}
+
+export function reserveIngredients(state, ingredientIds) {
+  const nextState = cloneState(state);
+  for (const ingredientId of ingredientIds) {
+    const ingredient = nextState.ingredients.find((item) => item.id === ingredientId);
+    if (!ingredient) continue;
+    ingredient.reserved = (ingredient.reserved ?? 0) + 1;
+  }
+  return nextState;
+}
+
+export function releaseIngredients(state, ingredientIds) {
+  const nextState = cloneState(state);
+  for (const ingredientId of ingredientIds) {
+    const ingredient = nextState.ingredients.find((item) => item.id === ingredientId);
+    if (!ingredient) continue;
+    ingredient.reserved = Math.max(0, (ingredient.reserved ?? 0) - 1);
+  }
   return nextState;
 }
 

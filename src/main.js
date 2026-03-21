@@ -18,8 +18,9 @@ import {
   updateProfile,
   replaceMealRecipe,
   updateRecipeIngredients,
+  releaseIngredients,
 } from "./state.js";
-import { isIngredientAvailable, needsIngredientRestock } from "./ingredient-stock.js";
+import { isIngredientAvailable, needsIngredientRestock, getIngredientAvailable } from "./ingredient-stock.js";
 import { LONG_PRESS_DELAY_MS, movedBeyondLongPressTolerance } from "./longpress.js";
 import { isSupabaseEnabled, runtimeConfig } from "./runtime-config.js";
 
@@ -262,10 +263,11 @@ function attachEvents() {
         const mealPlan = getMealPlan(state, mealDate, mealSlot);
         const wasCompleted = mealPlan?.completed ?? false;
         let nextState = toggleMealCompleted(state, mealDate, mealSlot);
-        // 标记完成时扣减食材库存，取消完成时不恢复
+        // 标记完成时扣减食材库存，同时释放预留；取消完成时不恢复
         if (!wasCompleted && mealPlan?.recipeId) {
           const recipe = state.recipes.find((r) => r.id === mealPlan.recipeId);
           if (recipe?.ingredientIds) {
+            nextState = releaseIngredients(nextState, recipe.ingredientIds);
             for (const ingId of recipe.ingredientIds) {
               nextState = useIngredient(nextState, ingId);
             }
@@ -1374,9 +1376,21 @@ function renderScheduleDrawer(recipeId) {
   `;
 }
 
+function isRecipeAvailable(recipe) {
+  return recipe.ingredientIds.every((id) => {
+    const ing = state.ingredients.find((i) => i.id === id);
+    return !ing || getIngredientAvailable(ing) > 0;
+  });
+}
+
 function renderSlotRecipePickerDrawer({ date, slot }) {
   const slotLabel = slot === "lunch" ? "午餐" : "晚餐";
-  const recipes = state.recipes;
+  const currentMeal = state.plans.find((p) => p.date === date)?.meals.find((m) => m.slot === slot);
+  const availableRecipes = state.recipes.filter((r) => {
+    // 当前已选菜谱始终显示（替换自身不消耗新库存）
+    if (r.id === currentMeal?.recipeId) return true;
+    return isRecipeAvailable(r);
+  });
   return `
     <div class="drawer-overlay" data-action="close-slot-picker" role="button" aria-label="关闭"></div>
     <div class="drawer is-opening">
@@ -1388,9 +1402,9 @@ function renderSlotRecipePickerDrawer({ date, slot }) {
         <button class="ghost-button" data-action="close-slot-picker" type="button">取消</button>
       </div>
       <div class="drawer-body">
-        ${recipes.length ? `
+        ${availableRecipes.length ? `
           <div class="inventory-list">
-            ${recipes.map((r) => {
+            ${availableRecipes.map((r) => {
               const ings = r.ingredientIds
                 .map((id) => state.ingredients.find((i) => i.id === id))
                 .filter(Boolean)
@@ -1409,7 +1423,7 @@ function renderSlotRecipePickerDrawer({ date, slot }) {
               `;
             }).join("")}
           </div>
-        ` : `<p class="empty-state">还没有${slotLabel}菜谱，先新建一个。</p>`}
+        ` : `<p class="empty-state">食材库存不足，无可用菜谱。</p>`}
       </div>
     </div>
   `;
@@ -1757,7 +1771,7 @@ function renderRecipeCard(recipe) {
 }
 
 function generateSuggestions(count = 3) {
-  const stocked = state.ingredients.filter((ingredient) => isIngredientAvailable(ingredient));
+  const stocked = state.ingredients.filter((ingredient) => getIngredientAvailable(ingredient) > 0);
   const byCategory = (cat) => stocked.filter((i) => i.category === cat);
   const proteins = byCategory("蛋白质");
   const vegs = byCategory("蔬菜");

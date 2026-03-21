@@ -6,8 +6,16 @@ export function getIngredientUsed(ingredient) {
   return ingredient?.used ?? 0;
 }
 
+export function getIngredientReserved(ingredient) {
+  return ingredient?.reserved ?? 0;
+}
+
 export function getIngredientRemaining(ingredient) {
   return Math.max(0, getIngredientQuantity(ingredient) - getIngredientUsed(ingredient));
+}
+
+export function getIngredientAvailable(ingredient) {
+  return Math.max(0, getIngredientRemaining(ingredient) - getIngredientReserved(ingredient));
 }
 
 export function getIngredientStockStatus(ingredient) {
