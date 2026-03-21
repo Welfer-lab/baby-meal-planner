@@ -273,45 +273,39 @@ export function getMealPlan(state, date, slot) {
 }
 
 export function replaceMealRecipe(state, date, slot, recipeId) {
-  let nextState = cloneState(state);
-  const plan = getPlan(nextState, date);
+  // 先找出旧菜谱 id，再做所有 clone 操作，避免引用丢失
+  const existingMeal = getMealPlan(state, date, slot);
+  if (!existingMeal) return state;
 
-  if (!plan) {
-    return state;
-  }
+  const oldRecipeId = existingMeal.recipeId;
+  const wasCompleted = existingMeal.completed;
 
-  const meal = plan.meals.find((item) => item.slot === slot);
-  if (!meal) {
-    return state;
-  }
-
-  // 释放旧菜谱的预留（仅未完成的餐次才有预留）
-  if (meal.recipeId && !meal.completed) {
-    const oldRecipe = nextState.recipes.find((r) => r.id === meal.recipeId);
+  // 1. 释放旧预留
+  let nextState = state;
+  if (oldRecipeId && !wasCompleted) {
+    const oldRecipe = state.recipes.find((r) => r.id === oldRecipeId);
     if (oldRecipe?.ingredientIds) {
       nextState = releaseIngredients(nextState, oldRecipe.ingredientIds);
     }
   }
 
-  meal.recipeId = recipeId;
-  meal.completed = false;
-
-  // 预留新菜谱的食材
+  // 2. 预留新食材
   if (recipeId) {
-    const newRecipe = nextState.recipes.find((r) => r.id === recipeId);
+    const newRecipe = state.recipes.find((r) => r.id === recipeId);
     if (newRecipe?.ingredientIds) {
       nextState = reserveIngredients(nextState, newRecipe.ingredientIds);
-      // 更新 plan 引用（reserveIngredients 做了 cloneState）
-      const updatedPlan = getPlan(nextState, date);
-      const updatedMeal = updatedPlan?.meals.find((m) => m.slot === slot);
-      if (updatedMeal) {
-        updatedMeal.recipeId = recipeId;
-        updatedMeal.completed = false;
-      }
     }
   }
 
-  return nextState;
+  // 3. 更新 meal（在最终 state 上做一次 clone）
+  const finalState = cloneState(nextState);
+  const plan = getPlan(finalState, date);
+  if (!plan) return state;
+  const meal = plan.meals.find((item) => item.slot === slot);
+  if (!meal) return state;
+  meal.recipeId = recipeId;
+  meal.completed = false;
+  return finalState;
 }
 
 export function toggleMealCompleted(state, date, slot) {
