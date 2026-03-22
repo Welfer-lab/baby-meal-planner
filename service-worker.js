@@ -1,10 +1,13 @@
-const CACHE_NAME = "baby-meal-planner-v5";
+const CACHE_NAME = "baby-meal-planner-v6";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css",
   "./src/main.js",
   "./src/state.js",
+  "./src/ingredient-stock.js",
+  "./src/longpress.js",
+  "./src/runtime-config.js",
   "./manifest.webmanifest",
   "./public/icons/icon-app.svg",
 ];
@@ -14,6 +17,9 @@ const NETWORK_FIRST_PATHS = new Set([
   "/styles.css",
   "/src/main.js",
   "/src/state.js",
+  "/src/ingredient-stock.js",
+  "/src/longpress.js",
+  "/src/runtime-config.js",
   "/manifest.webmanifest",
 ]);
 
