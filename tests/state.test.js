@@ -247,6 +247,16 @@ test("selected meal rating shows a soft rounded background to confirm the tap", 
   assert.equal(stylesheet.includes("background: rgba(225, 82, 73, 0.16);"), true);
 });
 
+test("mobile meal-plan header keeps the create recipe button on one line", () => {
+  const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  const stylesheet = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+
+  assert.equal(source.includes('class="header-row plan-board-header"'), true);
+  assert.equal(source.includes('class="primary-button plan-board-create"'), true);
+  assert.equal(stylesheet.includes(".plan-board-create"), true);
+  assert.equal(stylesheet.includes("white-space: nowrap;"), true);
+});
+
 test("history meal cards keep a visible gap between sibling cards", () => {
   const stylesheet = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
 

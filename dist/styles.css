@@ -572,6 +572,15 @@ textarea {
   grid-column: 1 / -1;
 }
 
+.plan-board-header > :first-child {
+  min-width: 0;
+}
+
+.plan-board-create {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 /* ==========================================
    所有页面：content-board 主卡片独占整行
    ========================================== */
@@ -1551,6 +1560,15 @@ button:disabled {
   .dashboard-board,
   .content-board {
     gap: 10px;
+  }
+
+  .plan-board-header {
+    gap: 6px;
+  }
+
+  .plan-board-create {
+    padding: 8px 12px;
+    font-size: 0.72rem;
   }
 }
 

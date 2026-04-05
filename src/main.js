@@ -1663,15 +1663,15 @@ function renderLibraryPage() {
     return dt.toISOString().slice(0, 10);
   })();
 
-  return `
+      return `
     <section class="dashboard-board">
       <section class="panel-card compact-card">
-        <div class="header-row" style="align-items:center;">
+        <div class="header-row plan-board-header" style="align-items:center;">
           <div>
             <p class="section-overline">Yesterday · Today · Tomorrow</p>
             <h3 class="section-title">饮食计划</h3>
           </div>
-          <button class="primary-button" data-action="open-recipe-creator" type="button">+ 新建菜谱</button>
+          <button class="primary-button plan-board-create" data-action="open-recipe-creator" type="button">+ 新建菜谱</button>
         </div>
       </section>
       <section class="content-board library-board">
