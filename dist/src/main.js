@@ -19,6 +19,8 @@ import {
   replaceMealRecipe,
   updateRecipeIngredients,
   releaseIngredients,
+  ensureYesterdayPlan,
+  setMealRating,
 } from "./state.js";
 import { isIngredientAvailable, needsIngredientRestock, getIngredientAvailable } from "./ingredient-stock.js";
 import { LONG_PRESS_DELAY_MS, movedBeyondLongPressTolerance } from "./longpress.js";
@@ -284,6 +286,11 @@ function attachEvents() {
             card.addEventListener("animationend", () => card.classList.remove("flash-complete"), { once: true });
           }
         }
+        break;
+      }
+      case "rate-meal": {
+        const { date: rateDate, slot: rateSlot, rating } = actionTarget.dataset;
+        commit(setMealRating(state, rateDate, rateSlot, rating), rating === "happy" ? "😊 好吃！" : "😔 下次改进");
         break;
       }
       case "delete-recipe":
@@ -767,7 +774,9 @@ async function pushCloudState(reason = "autosave") {
   cloudState.lastRemoteUpdatedAt = data?.updated_at || cloudState.lastRemoteUpdatedAt;
   cloudState.error = "";
   cloudState.helper = reason === "manual" ? "已手动同步到云端" : "数据已同步到云端";
-  render();
+  if (reason === "manual") {
+    render();
+  }
 }
 
 async function promptInstall() {
@@ -823,6 +832,7 @@ function render() {
   const today = getTodayKey();
   const previousPlanCount = state.plans.length;
   state = ensurePlanWindow(state, today);
+  state = ensureYesterdayPlan(state, today);
   if (state.plans.length !== previousPlanCount) {
     persistLocalState(state);
     scheduleCloudSave();
@@ -1640,6 +1650,12 @@ function renderInventoryRow(ingredient) {
 
 function renderLibraryPage() {
   const today = getTodayKey();
+  const yesterday = (() => {
+    const [y, m, d] = today.split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    dt.setUTCDate(dt.getUTCDate() - 1);
+    return dt.toISOString().slice(0, 10);
+  })();
   const tomorrow = (() => {
     const [y, m, d] = today.split("-").map(Number);
     const dt = new Date(Date.UTC(y, m - 1, d));
@@ -1652,7 +1668,7 @@ function renderLibraryPage() {
       <section class="panel-card compact-card">
         <div class="header-row" style="align-items:center;">
           <div>
-            <p class="section-overline">Today &amp; Tomorrow</p>
+            <p class="section-overline">Yesterday · Today · Tomorrow</p>
             <h3 class="section-title">饮食计划</h3>
           </div>
           <button class="primary-button" data-action="open-recipe-creator" type="button">+ 新建菜谱</button>
@@ -1660,6 +1676,7 @@ function renderLibraryPage() {
       </section>
       <section class="content-board library-board">
         ${renderSuggestedRecipes()}
+        ${renderDayPlanCard(yesterday, "昨天")}
         ${renderDayPlanCard(today, "今天")}
         ${renderDayPlanCard(tomorrow, "明天")}
       </section>
@@ -1699,6 +1716,7 @@ function renderMealSlotCard(date, slot, slotLabel, meal) {
   const recipe = meal.recipe;
   const isLunch = slot === "lunch";
   const completed = meal.completed;
+  const rating = meal.rating ?? null;
 
   return `
     <article
@@ -1729,7 +1747,33 @@ function renderMealSlotCard(date, slot, slotLabel, meal) {
       <div class="pill-row" style="margin-top:6px;">
         ${ingredients.map((ing) => renderIngredientPill(ing)).join("")}
       </div>
-      <span class="plan-recipe-slot-badge badge ${isLunch ? "hot" : "sage"}">${slotLabel}</span>
+      <div class="plan-recipe-footer">
+        ${completed ? `
+        <div class="meal-rating-row">
+          <button
+            class="meal-rating-btn ${rating === "happy" ? "selected" : ""}"
+            data-action="rate-meal"
+            data-date="${date}"
+            data-slot="${slot}"
+            data-rating="happy"
+            type="button"
+            aria-label="好吃"
+            title="好吃"
+          ><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 14s1.6 2.1 4 2.1 4-2.1 4-2.1"/><line x1="9" y1="9.4" x2="9.01" y2="9.4"/><line x1="15" y1="9.4" x2="15.01" y2="9.4"/></svg></button>
+          <button
+            class="meal-rating-btn ${rating === "sad" ? "selected" : ""}"
+            data-action="rate-meal"
+            data-date="${date}"
+            data-slot="${slot}"
+            data-rating="sad"
+            type="button"
+            aria-label="不好吃"
+            title="不好吃"
+          ><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16 16s-1.6-2.1-4-2.1-4 2.1-4 2.1"/><line x1="9" y1="9.4" x2="9.01" y2="9.4"/><line x1="15" y1="9.4" x2="15.01" y2="9.4"/></svg></button>
+        </div>
+        ` : '<span class="meal-rating-placeholder" aria-hidden="true"></span>'}
+        <span class="plan-recipe-slot-badge badge ${isLunch ? "hot" : "sage"}">${slotLabel}</span>
+      </div>
     </article>
   `;
 }

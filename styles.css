@@ -1021,7 +1021,7 @@ button:disabled {
    ========================================== */
 .plan-recipe-card {
   position: relative;
-  padding: 12px 14px 36px;
+  padding: 12px 14px 12px;
   border-radius: var(--r);
   background: var(--surface-2);
   border: 1.5px solid var(--border-mid);
@@ -1096,9 +1096,80 @@ button:disabled {
 }
 
 .plan-recipe-slot-badge {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
+  margin-left: auto;
+}
+
+.plan-recipe-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  min-height: 28px;
+}
+
+.meal-rating-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 0;
+  min-width: 68px;
+}
+
+.meal-rating-placeholder {
+  width: 68px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.meal-rating-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 140ms ease, opacity 140ms ease, filter 140ms ease, background 140ms ease;
+  opacity: 0.72;
+}
+
+.meal-rating-btn svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.meal-rating-btn[data-rating="happy"] {
+  color: #2ea65d;
+}
+
+.meal-rating-btn[data-rating="happy"]:hover,
+.meal-rating-btn[data-rating="happy"].selected {
+  opacity: 1;
+  transform: translateY(-1px) scale(1.08);
+  filter: drop-shadow(0 4px 8px rgba(46, 166, 93, 0.18));
+}
+
+.meal-rating-btn[data-rating="happy"].selected {
+  background: rgba(46, 166, 93, 0.16);
+}
+
+.meal-rating-btn[data-rating="sad"] {
+  color: #e15249;
+}
+
+.meal-rating-btn[data-rating="sad"]:hover,
+.meal-rating-btn[data-rating="sad"].selected {
+  opacity: 1;
+  transform: translateY(-1px) scale(1.08);
+  filter: drop-shadow(0 4px 8px rgba(225, 82, 73, 0.18));
+}
+
+.meal-rating-btn[data-rating="sad"].selected {
+  background: rgba(225, 82, 73, 0.16);
 }
 
 .meal-slot-empty {

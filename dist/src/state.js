@@ -448,6 +448,25 @@ export function ensurePlanWindow(state, currentDate) {
   return nextState;
 }
 
+export function ensureYesterdayPlan(state, currentDate) {
+  const yesterday = addDays(currentDate, -1);
+  if (state.plans.find((plan) => plan.date === yesterday)) {
+    return state;
+  }
+  const nextState = cloneState(state);
+  nextState.plans.push(createPlan(yesterday, null, null));
+  nextState.plans.sort((left, right) => left.date.localeCompare(right.date));
+  return nextState;
+}
+
+export function setMealRating(state, date, slot, rating) {
+  const nextState = cloneState(state);
+  const meal = getMealPlan(nextState, date, slot);
+  if (!meal) return state;
+  meal.rating = rating;
+  return nextState;
+}
+
 export function getUpcomingPlans(state, fromDate, days = 3) {
   const endDate = addDays(fromDate, days - 1);
   return state.plans.filter((plan) => plan.date >= fromDate && plan.date <= endDate);

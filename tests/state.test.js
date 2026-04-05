@@ -180,9 +180,15 @@ test("styles include iphone 14 pro max viewport sizing and safe-area layout rule
 test("service worker uses a fresh cache version and network-first for app shell files", () => {
   const source = readFileSync(new URL("../service-worker.js", import.meta.url), "utf8");
 
-  assert.equal(source.includes('baby-meal-planner-v5'), true);
+  assert.equal(source.includes('baby-meal-planner-v6'), true);
   assert.equal(source.includes("NETWORK_FIRST_PATHS"), true);
   assert.equal(source.includes('url.pathname === "/"'), true);
+});
+
+test("package scripts include a dev entry for local startup", () => {
+  const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+
+  assert.equal(packageJson.scripts.dev, "python3 -m http.server 4173");
 });
 
 test("main page markup and styles use compact card-board layout hooks", () => {
@@ -212,6 +218,33 @@ test("today meal cards use collapsible detail panels instead of fully expanded l
   assert.equal(source.includes("renderMealCard"), true);
   assert.equal(stylesheet.includes(".meal-card"), true);
   assert.equal(stylesheet.includes(".today-board"), true);
+});
+
+test("meal rating icons use borderless green happy and red sad faces without outer circles", () => {
+  const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  const stylesheet = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+
+  assert.equal(source.includes('<circle cx="12" cy="12" r="10"/>'), false);
+  assert.equal(stylesheet.includes("border: none;"), true);
+  assert.equal(stylesheet.includes("color: #2ea65d;"), true);
+  assert.equal(stylesheet.includes("color: #e15249;"), true);
+});
+
+test("meal rating and slot badge share one footer row so completed cards keep a stable size", () => {
+  const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  const stylesheet = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+
+  assert.equal(source.includes('class="plan-recipe-footer"'), true);
+  assert.equal(source.includes("meal-rating-placeholder"), true);
+  assert.equal(stylesheet.includes(".plan-recipe-footer"), true);
+});
+
+test("selected meal rating shows a soft rounded background to confirm the tap", () => {
+  const stylesheet = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+
+  assert.equal(stylesheet.includes("border-radius: 999px;"), true);
+  assert.equal(stylesheet.includes("background: rgba(46, 166, 93, 0.16);"), true);
+  assert.equal(stylesheet.includes("background: rgba(225, 82, 73, 0.16);"), true);
 });
 
 test("history meal cards keep a visible gap between sibling cards", () => {
