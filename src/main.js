@@ -47,6 +47,9 @@ const uiState = {
   installPrompt: null,
   authEmail: runtimeConfig.sharedLoginEmail || "",
   authPassword: "",
+  voiceState: null,
+  voiceTranscript: "",
+  voiceParsed: null,
 };
 
 const cloudState = {
@@ -402,6 +405,51 @@ function attachEvents() {
       case "sync-now":
         void pushCloudState("manual");
         break;
+      case "start-voice":
+        startVoiceRecognition();
+        break;
+      case "submit-voice-text": {
+        const text = uiState.voiceTranscript.trim();
+        if (!text) break;
+        uiState.voiceState = "processing";
+        render();
+        void callVoiceAsr(text);
+        break;
+      }
+      case "cancel-voice":
+        uiState.voiceState = null;
+        uiState.voiceTranscript = "";
+        uiState.voiceParsed = null;
+        render();
+        break;
+      case "confirm-voice":
+        executeVoiceAction();
+        break;
+      case "voice-set-ingredient-category": {
+        if (!uiState.voiceParsed) break;
+        const idx = parseInt(actionTarget.dataset.index, 10);
+        if (!uiState.voiceParsed._ingredientMeta) uiState.voiceParsed._ingredientMeta = [];
+        if (!uiState.voiceParsed._ingredientMeta[idx]) uiState.voiceParsed._ingredientMeta[idx] = { category: "蛋白质", acceptedLabel: "爱吃" };
+        uiState.voiceParsed._ingredientMeta[idx].category = actionTarget.dataset.category;
+        render();
+        break;
+      }
+      case "voice-set-ingredient-accepted": {
+        if (!uiState.voiceParsed) break;
+        const idx = parseInt(actionTarget.dataset.index, 10);
+        if (!uiState.voiceParsed._ingredientMeta) uiState.voiceParsed._ingredientMeta = [];
+        if (!uiState.voiceParsed._ingredientMeta[idx]) uiState.voiceParsed._ingredientMeta[idx] = { category: "蛋白质", acceptedLabel: "爱吃" };
+        uiState.voiceParsed._ingredientMeta[idx].acceptedLabel = actionTarget.dataset.label;
+        render();
+        break;
+      }
+      case "voice-pick-slot": {
+        if (!uiState.voiceParsed) break;
+        uiState.voiceParsed.slot = actionTarget.dataset.slot;
+        uiState.voiceParsed.date = actionTarget.dataset.date;
+        executeVoiceAction();
+        break;
+      }
       default:
         break;
     }
@@ -411,6 +459,9 @@ function attachEvents() {
     const target = event.target;
     if (target.matches("[data-role='ingredient-name']") && uiState.addingIngredient) {
       uiState.addingIngredient.name = target.value;
+    }
+    if (target.matches("[data-role='voice-text-input']")) {
+      uiState.voiceTranscript = target.value;
     }
 
     if (target.matches("[data-role='magic-email']")) {
@@ -848,6 +899,8 @@ function render() {
       </main>
     </div>
     ${renderBottomNav()}
+    ${renderVoiceFab()}
+    ${uiState.voiceState ? renderVoiceDrawer() : ""}
     ${uiState.editingRecipeId ? renderIngredientDrawer(uiState.editingRecipeId) : ""}
     ${uiState.creatingRecipe ? renderRecipeCreatorDrawer() : ""}
     ${uiState.addingIngredient ? renderAddIngredientDrawer() : ""}
@@ -2327,4 +2380,473 @@ function escapeHtml(value) {
 
 function isStandaloneDisplay() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+// ── 语音录入 ──────────────────────────────────────────────
+
+let voiceRecognition = null;
+
+function startVoiceRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    uiState.voiceState = "typing";
+    uiState.voiceTranscript = "";
+    render();
+    return;
+  }
+
+  if (voiceRecognition) {
+    voiceRecognition.abort();
+  }
+
+  voiceRecognition = new SpeechRecognition();
+  voiceRecognition.lang = "zh-CN";
+  voiceRecognition.interimResults = false;
+  voiceRecognition.maxAlternatives = 1;
+
+  uiState.voiceState = "listening";
+  uiState.voiceTranscript = "";
+  uiState.voiceParsed = null;
+  render();
+
+  voiceRecognition.onresult = (event) => {
+    const text = event.results[0][0].transcript;
+    uiState.voiceTranscript = text;
+    uiState.voiceState = "processing";
+    render();
+    void callVoiceAsr(text);
+  };
+
+  voiceRecognition.onerror = () => {
+    uiState.voiceState = "typing";
+    render();
+  };
+
+  voiceRecognition.onend = () => {
+    if (uiState.voiceState === "listening") {
+      uiState.voiceState = "typing";
+      render();
+    }
+  };
+
+  voiceRecognition.start();
+}
+
+async function callVoiceAsr(text) {
+  try {
+    const res = await fetch("/api/voice-asr", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text,
+        recipes: state.recipes,
+        ingredients: state.ingredients,
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const parsed = await res.json();
+    if (parsed.error) throw new Error(parsed.error);
+
+    uiState.voiceParsed = parsed;
+    uiState.voiceState = "confirming";
+    render();
+  } catch (err) {
+    uiState.voiceState = "error";
+    uiState.voiceTranscript = err.message || "解析失败";
+    render();
+  }
+}
+
+function executeVoiceAction() {
+  const parsed = uiState.voiceParsed;
+  if (!parsed) return;
+
+  const date = parsed.date && parsed.date !== "today" ? parsed.date : getTodayKey();
+  const slot = parsed.slot ?? "lunch";
+
+  uiState.voiceState = null;
+  uiState.voiceParsed = null;
+  uiState.voiceTranscript = "";
+
+  if (parsed.intent === "log_meal") {
+    if (parsed.matchedRecipeId) {
+      let next = replaceMealRecipe(state, date, slot, parsed.matchedRecipeId);
+      const meal = next.plans.find((p) => p.date === date)?.meals.find((m) => m.slot === slot);
+      if (meal && !meal.completed) {
+        next = toggleMealCompleted(next, date, slot);
+        const recipe = next.recipes.find((r) => r.id === parsed.matchedRecipeId);
+        if (recipe?.ingredientIds) {
+          next = releaseIngredients(next, recipe.ingredientIds);
+          for (const ingId of recipe.ingredientIds) {
+            next = useIngredient(next, ingId);
+          }
+        }
+      }
+      commit(next, `已记录：${parsed.recipeName || ""}`);
+    } else {
+      const ingredientIds = (parsed.ingredientNames || [])
+        .map((name) => state.ingredients.find((i) => i.name === name || i.name.includes(name)))
+        .filter(Boolean)
+        .map((i) => i.id);
+      const newRecipe = {
+        id: `voice-${Date.now()}`,
+        name: parsed.recipeName || parsed.rawText || "新菜谱",
+        stageLabel: state.profile.stageLabel,
+        slots: [slot],
+        ingredientIds,
+      };
+      let next = addRecipe(state, newRecipe);
+      next = replaceMealRecipe(next, date, slot, newRecipe.id);
+      next = toggleMealCompleted(next, date, slot);
+      if (ingredientIds.length) {
+        next = releaseIngredients(next, ingredientIds);
+        for (const ingId of ingredientIds) {
+          next = useIngredient(next, ingId);
+        }
+      }
+      commit(next, `已新建并记录：${newRecipe.name}`);
+    }
+  } else if (parsed.intent === "add_ingredient") {
+    const names = parsed.ingredientNames || (parsed.recipeName ? [parsed.recipeName] : []);
+    const meta = parsed._ingredientMeta || [];
+    let next = state;
+    for (let i = 0; i < names.length; i++) {
+      const name = names[i];
+      if (!name) continue;
+      const m = meta[i] || {};
+      next = addIngredient(next, {
+        id: `voice-ing-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name,
+        category: m.category || "蛋白质",
+        acceptedLabel: m.acceptedLabel || "爱吃",
+        quantity: 1,
+        used: 0,
+        note: "",
+        stockStatus: "in-stock",
+      });
+    }
+    commit(next, `已新增食材：${names.join("、")}`);
+  } else if (parsed.intent === "add_recipe") {
+    const ingredientIds = (parsed.ingredientNames || [])
+      .map((name) => state.ingredients.find((i) => i.name === name || i.name.includes(name)))
+      .filter(Boolean)
+      .map((i) => i.id);
+    const newRecipe = {
+      id: `voice-${Date.now()}`,
+      name: parsed.recipeName || parsed.rawText || "新菜谱",
+      stageLabel: state.profile.stageLabel,
+      slots: ["lunch", "dinner"],
+      ingredientIds,
+    };
+    commit(addRecipe(state, newRecipe), `菜谱已新增：${newRecipe.name}`);
+  }
+
+  render();
+}
+
+function renderVoiceFab() {
+  const isActive = !!uiState.voiceState;
+  return `
+    <button
+      class="voice-fab ${isActive ? "is-active" : ""}"
+      data-action="start-voice"
+      type="button"
+      aria-label="语音记录"
+    >🎤</button>
+  `;
+}
+
+function renderVoiceDrawer() {
+  const { voiceState, voiceTranscript, voiceParsed } = uiState;
+
+  if (voiceState === "listening") {
+    return `
+      <div class="drawer-overlay" data-action="cancel-voice" role="button" aria-label="关闭"></div>
+      <div class="drawer is-opening">
+        <div class="drawer-header">
+          <div>
+            <p class="section-overline">Voice Log</p>
+            <h3 class="section-title">正在听…</h3>
+          </div>
+          <button class="ghost-button" data-action="cancel-voice" type="button">取消</button>
+        </div>
+        <div class="drawer-body" style="display:flex;flex-direction:column;align-items:center;padding:40px 16px;gap:16px;">
+          <div class="voice-pulse"></div>
+          <p class="helper-copy">请说出你想记录的内容</p>
+          <p class="helper-copy" style="color:#aaa;font-size:0.8em;">例如：今天午餐做了三文鱼南瓜燕麦糊</p>
+        </div>
+      </div>
+    `;
+  }
+
+  if (voiceState === "typing") {
+    return `
+      <div class="drawer-overlay" data-action="cancel-voice" role="button" aria-label="关闭"></div>
+      <div class="drawer is-opening">
+        <div class="drawer-header">
+          <div>
+            <p class="section-overline">Voice Log</p>
+            <h3 class="section-title">输入记录</h3>
+          </div>
+          <button class="ghost-button" data-action="cancel-voice" type="button">取消</button>
+        </div>
+        <div class="drawer-body">
+          <div class="drawer-group">
+            <p class="drawer-group-label">请描述今天做了什么</p>
+            <input
+              data-role="voice-text-input"
+              type="text"
+              placeholder="例如：今天午餐做了三文鱼南瓜燕麦糊"
+              value="${escapeHtml(voiceTranscript)}"
+              autocomplete="off"
+              style="width:100%;"
+            />
+          </div>
+        </div>
+        <div style="padding:12px 16px 16px;">
+          <button class="primary-button" data-action="submit-voice-text" type="button" style="width:100%;">解析并记录</button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (voiceState === "processing") {
+    return `
+      <div class="drawer-overlay" data-action="cancel-voice" role="button" aria-label="关闭"></div>
+      <div class="drawer is-opening">
+        <div class="drawer-header">
+          <div>
+            <p class="section-overline">Voice Log</p>
+            <h3 class="section-title">AI 解析中…</h3>
+          </div>
+          <button class="ghost-button" data-action="cancel-voice" type="button">取消</button>
+        </div>
+        <div class="drawer-body" style="display:flex;flex-direction:column;align-items:center;padding:40px 16px;gap:12px;">
+          <p class="helper-copy">「${escapeHtml(voiceTranscript)}」</p>
+          <p class="helper-copy" style="color:#aaa;">正在理解…</p>
+        </div>
+      </div>
+    `;
+  }
+
+  if (voiceState === "error") {
+    return `
+      <div class="drawer-overlay" data-action="cancel-voice" role="button" aria-label="关闭"></div>
+      <div class="drawer is-opening">
+        <div class="drawer-header">
+          <div>
+            <p class="section-overline">Voice Log</p>
+            <h3 class="section-title">暂时无法解析</h3>
+          </div>
+          <button class="ghost-button" data-action="cancel-voice" type="button">关闭</button>
+        </div>
+        <div class="drawer-body" style="padding:24px 16px;">
+          <p class="helper-copy" style="color:#c0392b;">${escapeHtml(voiceTranscript)}</p>
+          <p class="helper-copy" style="margin-top:8px;color:#aaa;">请检查网络或 AI 服务是否正常，也可以手动记录。</p>
+        </div>
+      </div>
+    `;
+  }
+
+  if (voiceState === "confirming" && voiceParsed && voiceParsed.intent === "add_ingredient") {
+    const names = voiceParsed.ingredientNames || (voiceParsed.recipeName ? [voiceParsed.recipeName] : []);
+    const meta = voiceParsed._ingredientMeta || [];
+    const categories = ["蛋白质", "蔬菜", "主食"];
+    const accepted = ["爱吃", "一般"];
+    return `
+      <div class="drawer-overlay" data-action="cancel-voice" role="button" aria-label="关闭"></div>
+      <div class="drawer is-opening">
+        <div class="drawer-header">
+          <div>
+            <p class="section-overline">Add Ingredient</p>
+            <h3 class="section-title">新增食物</h3>
+          </div>
+          <button class="ghost-button" data-action="cancel-voice" type="button">取消</button>
+        </div>
+        <div class="drawer-body">
+          ${names.map((name, i) => {
+            const m = meta[i] || { category: "蛋白质", acceptedLabel: "爱吃" };
+            return `
+            <div class="drawer-group" style="${i > 0 ? "border-top:1px solid var(--border-light);padding-top:16px;" : ""}">
+              <p class="drawer-group-label" style="font-weight:700;font-size:1em;color:var(--text);">${escapeHtml(name)}</p>
+              <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+                <div>
+                  <p class="drawer-group-label">分类</p>
+                  <div class="filter-row">
+                    ${categories.map((cat) => `
+                      <button
+                        class="filter-button drawer-filter-button${m.category === cat ? " active" : ""}"
+                        data-action="voice-set-ingredient-category"
+                        data-index="${i}"
+                        data-category="${cat}"
+                        type="button"
+                      >${cat}</button>
+                    `).join("")}
+                  </div>
+                </div>
+                <div>
+                  <p class="drawer-group-label">接受度</p>
+                  <div class="filter-row">
+                    ${accepted.map((lbl) => `
+                      <button
+                        class="filter-button drawer-filter-button${m.acceptedLabel === lbl ? " active" : ""}"
+                        data-action="voice-set-ingredient-accepted"
+                        data-index="${i}"
+                        data-label="${lbl}"
+                        type="button"
+                      >${lbl}</button>
+                    `).join("")}
+                  </div>
+                </div>
+              </div>
+            </div>
+          `}).join("")}
+        </div>
+        <div style="padding:12px 16px 16px;">
+          <button class="primary-button" data-action="confirm-voice" type="button" style="width:100%;">
+            加入库存（${names.length} 种）
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (voiceState === "confirming" && voiceParsed) {
+    const needSlot = voiceParsed.intent === "log_meal" && !voiceParsed.slot;
+    const today = getTodayKey();
+    const tomorrow = (() => {
+      const [y, m, d] = today.split("-").map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      dt.setUTCDate(dt.getUTCDate() + 1);
+      return dt.toISOString().slice(0, 10);
+    })();
+
+    const intentLabel = {
+      log_meal: "记录一顿饭",
+      add_recipe: "新增菜谱",
+      add_ingredient: "新增食材",
+    }[voiceParsed.intent] || "记录";
+
+    const slotLabel = voiceParsed.slot === "lunch" ? "午餐" : voiceParsed.slot === "dinner" ? "晚餐" : "";
+    const dateLabel = voiceParsed.date && voiceParsed.date !== today ? voiceParsed.date : "今天";
+    const matchedRecipe = voiceParsed.matchedRecipeId
+      ? state.recipes.find((r) => r.id === voiceParsed.matchedRecipeId)
+      : null;
+
+    if (needSlot) {
+      const timeSlots = [
+        { date: today, slot: "lunch", label: "今天午餐" },
+        { date: today, slot: "dinner", label: "今天晚餐" },
+        { date: tomorrow, slot: "lunch", label: "明天午餐" },
+        { date: tomorrow, slot: "dinner", label: "明天晚餐" },
+      ];
+      return `
+        <div class="drawer-overlay" data-action="cancel-voice" role="button" aria-label="关闭"></div>
+        <div class="drawer is-opening">
+          <div class="drawer-header">
+            <div>
+              <p class="section-overline">Voice Log</p>
+              <h3 class="section-title">选择餐次</h3>
+            </div>
+            <button class="ghost-button" data-action="cancel-voice" type="button">取消</button>
+          </div>
+          <div class="drawer-body">
+            <p class="drawer-group-label" style="padding:0 0 12px;">「${escapeHtml(voiceParsed.rawText || voiceTranscript)}」是哪一餐？</p>
+            <div class="inventory-list">
+              ${timeSlots.map(({ date, slot, label }) => `
+                <div
+                  class="inventory-row"
+                  data-action="voice-pick-slot"
+                  data-date="${date}"
+                  data-slot="${slot}"
+                  role="button"
+                  tabindex="0"
+                >
+                  <span class="inventory-row-name">${label}</span>
+                  <span class="inventory-row-meta">${formatShortDate(date)}</span>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="drawer-overlay" data-action="cancel-voice" role="button" aria-label="关闭"></div>
+      <div class="drawer is-opening">
+        <div class="drawer-header">
+          <div>
+            <p class="section-overline">Voice Log · 确认</p>
+            <h3 class="section-title">${intentLabel}</h3>
+          </div>
+          <button class="ghost-button" data-action="cancel-voice" type="button">取消</button>
+        </div>
+        <div class="drawer-body">
+          ${voiceParsed.confidence === "low" ? `
+            <div style="background:#fff8e1;border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+              <p class="helper-copy" style="color:#b8860b;">⚠️ AI 不太确定，请检查以下内容是否正确</p>
+            </div>
+          ` : ""}
+          <div class="subtle-card" style="margin-bottom:12px;">
+            <p class="helper-copy" style="color:#aaa;margin-bottom:4px;">我听到了</p>
+            <p style="font-size:0.95em;">「${escapeHtml(voiceParsed.rawText || voiceTranscript)}」</p>
+          </div>
+          <div class="subtle-card">
+            <p class="helper-copy" style="color:#aaa;margin-bottom:8px;">我的理解</p>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;justify-content:space-between;">
+                <span class="helper-copy">操作</span>
+                <span style="font-weight:600;">${intentLabel}</span>
+              </div>
+              ${voiceParsed.recipeName ? `
+                <div style="display:flex;justify-content:space-between;">
+                  <span class="helper-copy">菜名</span>
+                  <span style="font-weight:600;">${escapeHtml(voiceParsed.recipeName)}</span>
+                </div>
+              ` : ""}
+              ${slotLabel ? `
+                <div style="display:flex;justify-content:space-between;">
+                  <span class="helper-copy">餐次</span>
+                  <span style="font-weight:600;">${dateLabel} ${slotLabel}</span>
+                </div>
+              ` : ""}
+              ${matchedRecipe ? `
+                <div style="display:flex;justify-content:space-between;">
+                  <span class="helper-copy">匹配菜谱</span>
+                  <span style="font-weight:600;color:#2d6a4f;">✓ ${escapeHtml(matchedRecipe.name)}</span>
+                </div>
+              ` : voiceParsed.intent === "log_meal" ? `
+                <div style="display:flex;justify-content:space-between;">
+                  <span class="helper-copy">匹配菜谱</span>
+                  <span style="color:#aaa;">新建「${escapeHtml(voiceParsed.recipeName || "")}」</span>
+                </div>
+              ` : ""}
+              ${voiceParsed.intent === "add_ingredient" && (voiceParsed.ingredientNames || []).length ? `
+                <div style="border-top:1px solid var(--border-light);margin-top:4px;padding-top:8px;">
+                  <p class="helper-copy" style="margin-bottom:6px;">将新增到库存：</p>
+                  ${(voiceParsed.ingredientNames).map((name, i) => `
+                    <div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+                      <span style="color:#aaa;font-size:0.8em;min-width:16px;">${i + 1}</span>
+                      <span style="font-weight:600;">${escapeHtml(name)}</span>
+                    </div>
+                  `).join("")}
+                </div>
+              ` : ""}
+            </div>
+          </div>
+        </div>
+        <div style="padding:12px 16px 16px;display:flex;gap:8px;">
+          <button class="ghost-button" data-action="cancel-voice" type="button" style="flex:1;">取消</button>
+          <button class="primary-button" data-action="confirm-voice" type="button" style="flex:2;">确认记录</button>
+        </div>
+      </div>
+    `;
+  }
+
+  return "";
 }

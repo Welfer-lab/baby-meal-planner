@@ -1,10 +1,11 @@
 {
   "buildCommand": "npm run build",
+  "devCommand": "npm run build && npx serve dist -l $PORT --no-clipboard",
   "outputDirectory": "dist",
   "cleanUrls": true,
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!api/|index\\.html).*)",
       "destination": "/index.html"
     }
   ],
