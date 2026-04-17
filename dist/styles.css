@@ -1778,9 +1778,11 @@ button:disabled {
   margin: -4px 2px;
   transition: transform 120ms, box-shadow 120ms;
 }
-.nav-voice-btn:active {
+.nav-voice-btn:active,
+.nav-voice-btn.is-recording {
   transform: scale(0.93);
   box-shadow: 1px 1px 0 var(--border);
+  background: var(--danger, #ff4d4f);
 }
 .nav-voice-icon {
   font-size: 1.3rem;
