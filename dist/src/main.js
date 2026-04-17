@@ -21,6 +21,7 @@ import {
   releaseIngredients,
   ensureYesterdayPlan,
   setMealRating,
+  getAllHistoryDays,
 } from "./state.js";
 import { isIngredientAvailable, needsIngredientRestock, getIngredientAvailable } from "./ingredient-stock.js";
 import { LONG_PRESS_DELAY_MS, movedBeyondLongPressTolerance } from "./longpress.js";
@@ -50,6 +51,7 @@ const uiState = {
   voiceState: null,
   voiceTranscript: "",
   voiceParsed: null,
+  editingHistoryMeal: null, // { date, slot }
 };
 
 const cloudState = {
@@ -405,6 +407,37 @@ function attachEvents() {
       case "sync-now":
         void pushCloudState("manual");
         break;
+      case "open-history-edit":
+        uiState.editingHistoryMeal = { date: actionTarget.dataset.date, slot: actionTarget.dataset.slot };
+        render();
+        break;
+      case "close-history-edit":
+        uiState.editingHistoryMeal = null;
+        render();
+        break;
+      case "history-toggle-complete": {
+        const { date: hDate, slot: hSlot } = uiState.editingHistoryMeal;
+        const mealPlan = getMealPlan(state, hDate, hSlot);
+        const wasCompleted = mealPlan?.completed ?? false;
+        let nextState = toggleMealCompleted(state, hDate, hSlot);
+        if (!wasCompleted && mealPlan?.recipeId) {
+          const recipe = state.recipes.find((r) => r.id === mealPlan.recipeId);
+          if (recipe?.ingredientIds) {
+            nextState = releaseIngredients(nextState, recipe.ingredientIds);
+            for (const ingId of recipe.ingredientIds) nextState = useIngredient(nextState, ingId);
+          }
+        }
+        uiState.editingHistoryMeal = null;
+        commit(nextState, wasCompleted ? "已取消完成" : "已标记完成");
+        break;
+      }
+      case "history-rate": {
+        const { date: rDate, slot: rSlot } = uiState.editingHistoryMeal;
+        commit(setMealRating(state, rDate, rSlot, actionTarget.dataset.rating), "评价已保存");
+        uiState.editingHistoryMeal = null;
+        render();
+        break;
+      }
       case "start-voice":
         startVoiceRecognition();
         break;
@@ -899,8 +932,8 @@ function render() {
       </main>
     </div>
     ${renderBottomNav()}
-    ${renderVoiceFab()}
     ${uiState.voiceState ? renderVoiceDrawer() : ""}
+    ${uiState.editingHistoryMeal ? renderHistoryEditDrawer() : ""}
     ${uiState.editingRecipeId ? renderIngredientDrawer(uiState.editingRecipeId) : ""}
     ${uiState.creatingRecipe ? renderRecipeCreatorDrawer() : ""}
     ${uiState.addingIngredient ? renderAddIngredientDrawer() : ""}
@@ -1123,14 +1156,15 @@ function renderIngredientStats(stats) {
 }
 
 function renderHistoryPage(snapshot, today) {
+  const historyDays = getAllHistoryDays(state, today);
   return `
-    <section class="dashboard-board">
-      <section class="content-board history-board">
+    <section class=”dashboard-board”>
+      <section class=”content-board history-board”>
         ${renderIngredientStats(snapshot.ingredientStats)}
         ${
-          snapshot.historyDays.length
-            ? snapshot.historyDays.map((day) => renderHistoryDay(day)).join("")
-            : `<div class="empty-state wide-card">今天先从首页标记一顿“已完成”，这里就会开始累计你们家的真实喂养记录。</div>`
+          historyDays.length
+            ? historyDays.map((day) => renderHistoryDay(day)).join("")
+            : `<div class=”empty-state wide-card”>还没有历史记录，先去计划页安排今天的餐食吧。</div>`
         }
         <section class="panel-card compact-card wide-card" style="margin-top:16px">
           <div class="header-row">
@@ -1156,6 +1190,8 @@ function renderHistoryPage(snapshot, today) {
 }
 
 function renderHistoryDay(day) {
+  const completedCount = day.meals.filter((meal) => meal.completed).length;
+  const visibleMeals = day.meals.filter((meal) => meal.recipeId || meal.completed);
   return `
     <article class="history-card compact-card wide-card">
       <div class="header-row">
@@ -1163,30 +1199,41 @@ function renderHistoryDay(day) {
           <p class="eyebrow">${formatLongDate(day.date)}</p>
           <h3 class="history-title">${weekdayLabel(day.date)}</h3>
         </div>
-        <span class="badge sage">${day.meals.filter((meal) => meal.completed).length} 顿完成</span>
+        <span class="badge sage">${completedCount} 顿完成</span>
       </div>
       <div class="history-meals card-grid">
-        ${day.meals
-          .filter((meal) => meal.completed && meal.recipe)
-          .map(
-            (meal) => `
-              <article class="history-item compact-tile">
-                <div class="row-between">
-                  <span class="badge hot">${meal.slotLabel}</span>
-                  <span class="status-pill completed">已打卡</span>
-                </div>
-                <p class="history-title">${escapeHtml(meal.recipe.name)}</p>
+        ${visibleMeals.length ? visibleMeals.map((meal) => {
+          const recipe = meal.recipe || state.recipes.find((r) => r.id === meal.recipeId);
+          return `
+            <article
+              class="history-item compact-tile${meal.completed ? " is-complete" : ""}"
+              data-action="open-history-edit"
+              data-date="${day.date}"
+              data-slot="${meal.slot}"
+              role="button"
+              tabindex="0"
+              style="cursor:pointer;"
+            >
+              <div class="row-between">
+                <span class="badge hot">${meal.slotLabel}</span>
+                ${meal.completed
+                  ? `<span class="status-pill completed">已打卡 ${meal.rating === "happy" ? "😊" : meal.rating === "sad" ? "😔" : ""}</span>`
+                  : `<span class="status-pill" style="color:#aaa;border-color:#ddd;">未完成</span>`}
+              </div>
+              <p class="history-title">${recipe ? escapeHtml(recipe.name) : "未安排"}</p>
+              ${recipe ? `
                 <div class="pill-row" style="margin-top:4px;">
-                  ${(meal.recipe.ingredientIds || [])
+                  ${(recipe.ingredientIds || [])
                     .map((id) => state.ingredients.find((i) => i.id === id))
                     .filter(Boolean)
                     .map((ing) => renderIngredientPill(ing))
                     .join("")}
-                </div>
-              </article>
-            `,
-          )
-          .join("")}
+                </div>` : ""}
+              ${meal.note ? `<p class="history-note" style="margin-top:6px;font-style:italic;">「${escapeHtml(meal.note)}」</p>` : ""}
+              <p class="helper-copy" style="margin-top:6px;color:#bbb;font-size:0.75em;">长按补充记录</p>
+            </article>
+          `;
+        }).join("") : `<p class="empty-state" style="grid-column:1/-1;font-size:0.9em;color:#aaa;">这天没有安排</p>`}
       </div>
     </article>
   `;
@@ -2254,30 +2301,28 @@ function renderSummaryCard(label, value, tone = "plain") {
 }
 
 function renderBottomNav() {
-  const items = [
-    ["library", "计划"],
-    ["history", "记录"],
-    ["inventory", "库存"],
-    ["buy", "采购"],
-  ];
+  const left = [["library", "计划"], ["history", "记录"]];
+  const right = [["inventory", "库存"], ["buy", "采购"]];
+
+  const navBtn = ([tab, label]) => `
+    <button
+      class="nav-button ${uiState.activeTab === tab ? "active" : ""}"
+      data-action="switch-tab"
+      data-tab="${tab}"
+      type="button"
+    >
+      <span class="nav-label">${label}</span>
+    </button>
+  `;
 
   return `
     <nav class="nav-wrap" aria-label="页面切换">
       <div class="nav-row">
-        ${items
-          .map(
-            ([tab, label]) => `
-              <button
-                class="nav-button ${uiState.activeTab === tab ? "active" : ""}"
-                data-action="switch-tab"
-                data-tab="${tab}"
-                type="button"
-              >
-                <span class="nav-label">${label}</span>
-              </button>
-            `,
-          )
-          .join("")}
+        ${left.map(navBtn).join("")}
+        <button class="nav-voice-btn" data-action="start-voice" type="button" aria-label="语音记录">
+          <span class="nav-voice-icon">🎤</span>
+        </button>
+        ${right.map(navBtn).join("")}
       </div>
     </nav>
   `;
@@ -2849,4 +2894,66 @@ function renderVoiceDrawer() {
   }
 
   return "";
+}
+
+function renderHistoryEditDrawer() {
+  const { date, slot } = uiState.editingHistoryMeal;
+  const meal = getMealPlan(state, date, slot);
+  const recipe = meal?.recipeId ? state.recipes.find((r) => r.id === meal.recipeId) : null;
+  const slotLabel = slot === "lunch" ? "午餐" : "晚餐";
+
+  return `
+    <div class="drawer-overlay" data-action="close-history-edit" role="button" aria-label="关闭"></div>
+    <div class="drawer is-opening">
+      <div class="drawer-header">
+        <div>
+          <p class="section-overline">${formatShortDate(date)} ${slotLabel}</p>
+          <h3 class="section-title">${recipe ? escapeHtml(recipe.name) : "未安排"}</h3>
+        </div>
+        <button class="ghost-button" data-action="close-history-edit" type="button">关闭</button>
+      </div>
+      <div class="drawer-body">
+        <div class="drawer-group">
+          <p class="drawer-group-label">完成状态</p>
+          <button
+            class="${meal?.completed ? "secondary-button" : "primary-button"}"
+            data-action="history-toggle-complete"
+            type="button"
+            style="width:100%;"
+          >${meal?.completed ? "取消完成" : "标记为已完成"}</button>
+        </div>
+        ${meal?.completed ? `
+          <div class="drawer-group">
+            <p class="drawer-group-label">今天吃得怎么样？</p>
+            <div class="filter-row">
+              <button
+                class="filter-button drawer-filter-button${meal.rating === "happy" ? " active" : ""}"
+                data-action="history-rate"
+                data-rating="happy"
+                type="button"
+                style="font-size:1.2em;"
+              >😊 爱吃</button>
+              <button
+                class="filter-button drawer-filter-button${meal.rating === "sad" ? " active" : ""}"
+                data-action="history-rate"
+                data-rating="sad"
+                type="button"
+                style="font-size:1.2em;"
+              >😔 一般</button>
+            </div>
+          </div>
+        ` : ""}
+        <div class="drawer-group">
+          <p class="drawer-group-label">备注</p>
+          <textarea
+            data-role="meal-note"
+            data-date="${date}"
+            data-slot="${slot}"
+            placeholder="比如：吃了一半，下次减少分量…"
+            style="width:100%;min-height:80px;"
+          >${escapeHtml(meal?.note || "")}</textarea>
+        </div>
+      </div>
+    </div>
+  `;
 }

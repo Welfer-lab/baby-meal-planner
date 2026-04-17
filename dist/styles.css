@@ -1761,32 +1761,30 @@ button:disabled {
 }
 
 /* ==========================================
-   Voice FAB & Drawer
+   Voice Nav Button & Drawer
    ========================================== */
-.voice-fab {
-  position: fixed;
-  bottom: calc(72px + env(safe-area-inset-bottom, 0px) + 16px);
-  right: 16px;
+.nav-voice-btn {
+  flex: 0 0 auto;
   width: 52px;
   height: 52px;
   border-radius: 50%;
   border: 2.5px solid var(--border);
   background: var(--primary);
-  color: #fff;
-  font-size: 1.4rem;
-  line-height: 1;
+  box-shadow: 3px 3px 0 var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 3px 3px 0 var(--border);
   cursor: pointer;
-  z-index: 90;
+  margin: -4px 2px;
   transition: transform 120ms, box-shadow 120ms;
 }
-.voice-fab:active,
-.voice-fab.is-active {
+.nav-voice-btn:active {
   transform: scale(0.93);
   box-shadow: 1px 1px 0 var(--border);
+}
+.nav-voice-icon {
+  font-size: 1.3rem;
+  line-height: 1;
 }
 
 .voice-pulse {

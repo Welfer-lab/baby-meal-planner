@@ -493,6 +493,23 @@ export function getHistoryDays(state, currentDate) {
   return getCompletedHistoryDays(state, currentDate, 5);
 }
 
+export function getAllHistoryDays(state, currentDate) {
+  const recipeMap = getRecipeMap(state);
+  const startDate = addDays(currentDate, -6);
+  const yesterday = addDays(currentDate, -1);
+  return state.plans
+    .filter((plan) => plan.date >= startDate && plan.date <= yesterday)
+    .map((plan) => ({
+      date: plan.date,
+      meals: plan.meals.map((meal) => ({
+        ...meal,
+        slotLabel: mealSlotLabels[meal.slot],
+        recipe: recipeMap.get(meal.recipeId),
+      })),
+    }))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
 export function buildIngredientHistory(state, currentDate) {
   const historyMap = new Map();
   const recipeMap = getRecipeMap(state);
