@@ -968,21 +968,12 @@ function bindVoiceButton() {
   const btn = document.getElementById("nav-voice-btn");
   if (!btn) return;
 
-  const stop = () => {
-    if (voiceRecognition && uiState.voiceState === "listening") {
-      voiceRecognition.stop();
-    }
-    btn.classList.remove("is-recording");
-  };
+  const startPress = () => btn.classList.add("is-recording");
+  const stopPress = () => btn.classList.remove("is-recording");
 
-  btn.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    btn.classList.add("is-recording");
-    startVoiceRecognition();
-  }, { once: true });
-
-  btn.addEventListener("pointerup", stop, { once: true });
-  btn.addEventListener("pointercancel", stop, { once: true });
+  btn.addEventListener("pointerdown", startPress, { once: true });
+  btn.addEventListener("pointerup", stopPress, { once: true });
+  btn.addEventListener("pointercancel", stopPress, { once: true });
 }
 
 function renderAuthShell() {
@@ -2342,7 +2333,13 @@ function renderBottomNav() {
     <nav class="nav-wrap" aria-label="页面切换">
       <div class="nav-row">
         ${left.map(navBtn).join("")}
-        <button class="nav-voice-btn" id="nav-voice-btn" type="button" aria-label="语音记录">
+        <button
+          class="nav-voice-btn"
+          id="nav-voice-btn"
+          data-action="start-voice"
+          type="button"
+          aria-label="语音记录"
+        >
           <span class="nav-voice-icon">🎤</span>
         </button>
         ${right.map(navBtn).join("")}

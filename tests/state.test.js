@@ -315,6 +315,13 @@ test("inventory cards expose a delete action for ingredients", () => {
   assert.equal(stylesheet.includes("color: #9f9f9f;"), true);
 });
 
+test("voice nav button uses the shared start-voice action instead of pointer-only startup", () => {
+  const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+
+  assert.equal(source.includes('id="nav-voice-btn"'), true);
+  assert.equal(source.includes('data-action="start-voice"'), true);
+});
+
 test("add ingredient drawer filter buttons disable press bounce animation", () => {
   const source = readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
   const stylesheet = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
